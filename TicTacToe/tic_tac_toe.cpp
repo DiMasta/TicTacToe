@@ -188,9 +188,9 @@ BoardGrade Board::grade() const {
 
 	for (int winCondIdx = 0; winCondIdx < WIN_CONDITIONS_COUNT; ++winCondIdx) {
 		const Cells winnerMask = WIN_CONDITIONS[winCondIdx];
-		const int notEmptyWinPattern = (winnerMask & emptyCells);
+		const Cells extractPlayedCells = winnerMask & emptyCells;
 
-		if (notEmptyWinPattern) {
+		if (winnerMask == extractPlayedCells) {
 			const Cells notEmptyPlayersCells = playersCells & winnerMask;
 
 			const int iWin = (notEmptyPlayersCells == winnerMask);
@@ -250,7 +250,11 @@ public:
 		return board;
 	}
 
-	const Board* getBoardPtr() const {
+	Board* getBoardPtr() {
+		return &board;
+	}
+
+	const Board* getBoardConstPtr() const {
 		return &board;
 	}
 
@@ -595,7 +599,7 @@ void MiniMax::run(const Board& initialBoard) {
 Node MiniMax::makeChild(const Node& parent, Cells moveBit, BoardChars playerChar) {
 	NodeId childId = miniMaxTree.getLastNodeId() + 1;
 	Node child = Node(childId, parent.getNodeDepth() + 1, parent.getId(), parent.getBoard());
-	child.getBoard().makeMove(moveBit, playerChar);
+	child.getBoardPtr()->makeMove(moveBit, playerChar);
 	miniMaxTree.addEdge(parent.getId(), childId);
 
 	return child;
@@ -605,18 +609,19 @@ Node MiniMax::makeChild(const Node& parent, Cells moveBit, BoardChars playerChar
 //*************************************************************************************************************
 
 MiniMaxResult MiniMax::maximize(Node& node, int alpha, int beta) {
-	const BoardGrade grade = node.getBoardPtr()->grade();
+	const BoardGrade grade = node.getBoardConstPtr()->grade();
 
 	if (BoardGrade::PLAYABLE != grade) {
 		// Terminal state
 		return MiniMaxResult(node.getId(), static_cast<int>(grade));
 	}
 
-	MiniMaxResult res(INVALID_ID, INT_MAX);
+	MiniMaxResult res(INVALID_ID, INT_MIN);
 
 	Cells moveBit = FIRST_CELL_BIT_1;
 	for (int moveIdx = 0; moveIdx < BOARD_SIZE; ++moveIdx) {
-		if (node.getBoardPtr()->getEmptyCells() & moveBit) {
+		if (node.getBoardConstPtr()->getEmptyCells() & moveBit) {
+			moveBit >>= 1;
 			continue;
 		}
 
@@ -645,18 +650,19 @@ MiniMaxResult MiniMax::maximize(Node& node, int alpha, int beta) {
 //*************************************************************************************************************
 
 MiniMaxResult MiniMax::minimize(Node& node, int alpha, int beta) {
-	const BoardGrade grade = node.getBoardPtr()->grade();
+	const BoardGrade grade = node.getBoardConstPtr()->grade();
 
 	if (BoardGrade::PLAYABLE != grade) {
 		// Terminal state
 		return MiniMaxResult(node.getId(), static_cast<int>(grade));
 	}
 
-	MiniMaxResult res(INVALID_ID, INT_MIN);
+	MiniMaxResult res(INVALID_ID, INT_MAX);
 
 	Cells moveBit = FIRST_CELL_BIT_1;
 	for (int moveIdx = 0; moveIdx < BOARD_SIZE; ++moveIdx) {
-		if (node.getBoardPtr()->getEmptyCells() & moveBit) {
+		if (node.getBoardConstPtr()->getEmptyCells() & moveBit) {
+			moveBit >>= 1;
 			continue;
 		}
 
