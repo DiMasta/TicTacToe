@@ -16,9 +16,9 @@
 
 using namespace std;
 
-const bool OUTPUT_GAME_DATA = 1;
 const bool USE_HARDCODED_INPUT = 1;
 
+#define OUTPUT_GAME_DATA
 #define REDIRECT_CIN_FROM_FILE
 const string INPUT_FILE_NAME = "input.txt";
 
@@ -69,6 +69,22 @@ const Cells WIN_CONDITIONS[WIN_CONDITIONS_COUNT] = {
 	10752	// 001 010 100 0000000
 };
 
+map<Cells, string> MOVES{
+	{ 32768, "0 0" }, // 100 000 000 0000000
+	{ 16384, "0 1" }, // 010 000 000 0000000
+	{ 8192 , "0 2" }, // 001 000 000 0000000
+	{ 4096 , "1 0" }, // 000 100 000 0000000
+	{ 2048 , "1 1" }, // 000 010 000 0000000
+	{ 1024 , "1 2" }, // 000 001 000 0000000
+	{ 512  , "2 0" }, // 000 000 100 0000000
+	{ 256  , "2 1" }, // 000 000 010 0000000
+	{ 128  , "2 2" }  // 000 000 001 0000000
+};
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
 
 class Board {
 public:
@@ -558,7 +574,7 @@ public:
 	MiniMax();
 	~MiniMax();
 
-	void run(const Board& initialBoard);
+	string run(const Board& initialBoard);
 	Node makeChild(const Node& parent, Cells moveBit, BoardChars playerChar);
 	MiniMaxResult maximize(Node& node, int alpha, int beta);
 	MiniMaxResult minimize(Node& node, int alpha, int beta);
@@ -586,11 +602,19 @@ MiniMax::~MiniMax() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void MiniMax::run(const Board& initialBoard) {
+string MiniMax::run(const Board& initialBoard) {
 	miniMaxTree.createNode(0, 0, initialBoard);
 	MiniMaxResult miniMaxRes = maximize(*miniMaxTree.getNode(0), INT_MIN, INT_MAX);
 
+	vector<NodeId> backTrackPath = miniMaxTree.backtrack(miniMaxRes.bestLeaveNode, 0);
+	NodeId bestMoveNode = backTrackPath[1];
 
+	Cells bestMoveNodeCells = miniMaxTree.getNode(bestMoveNode)->getBoardConstPtr()->getEmptyCells();
+	Cells intialBoardCells = initialBoard.getEmptyCells();
+
+	Cells bestMove = bestMoveNodeCells ^ intialBoardCells;
+
+	return MOVES[bestMove];
 }
 
 //*************************************************************************************************************
@@ -714,6 +738,7 @@ private:
 
 	Board board;
 	MiniMax miniMax;
+	int makeFirstMove;
 };
 
 //*************************************************************************************************************
@@ -722,7 +747,8 @@ private:
 Game::Game() :
 	turnsCount(0),
 	board(),
-	miniMax()
+	miniMax(),
+	makeFirstMove(false)
 {
 
 }
@@ -771,18 +797,27 @@ void Game::getTurnInput() {
 	int opponentCol;
 	cin >> opponentRow >> opponentCol; cin.ignore();
 
+#ifdef OUTPUT_GAME_DATA
+	cerr << opponentRow << " " << opponentCol << endl;
+#endif // OUTPUT_GAME_DATA
+
 	if (INVALID_ROW_COL_IDX != opponentRow && INVALID_ROW_COL_IDX != opponentCol) {
 		board.setCell(opponentRow, opponentCol, BoardChars::OPPONENT);
 	}
+	else {
+		makeFirstMove = true;
+	}
 
-	//int validActionCount;
-	//cin >> validActionCount; cin.ignore();
-	//
-	//for (int i = 0; i < validActionCount; i++) {
-	//	int row;
-	//	int col;
-	//	cin >> row >> col; cin.ignore();
-	//}
+#ifndef REDIRECT_CIN_FROM_FILE
+	int validActionCount;
+	cin >> validActionCount; cin.ignore();
+	
+	for (int i = 0; i < validActionCount; i++) {
+		int row;
+		int col;
+		cin >> row >> col; cin.ignore();
+	}
+#endif //REDIRECT_CIN_FROM_FILE
 }
 
 //*************************************************************************************************************
@@ -795,9 +830,15 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	miniMax.run(board);
+	if (makeFirstMove) {
+		board.setCell(0, 0, BoardChars::ME);
+		cout << "0 0" << endl;
 
-	cout << "0 0" << endl;
+		makeFirstMove = false;
+	}
+	else {
+		cout << miniMax.run(board) << endl;
+	}
 }
 
 //*************************************************************************************************************
