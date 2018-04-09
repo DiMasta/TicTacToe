@@ -28,13 +28,23 @@ const int TREE_ROOT_NODE_DEPTH = 1;
 const int ZERO_CHAR = '0';
 const int DIRECTIONS_COUNT = 8;
 const int BOARD_DIM = 3;
+const int BOARD_SIZE = BOARD_DIM * BOARD_DIM;
 const int INVALID_ROW_COL_IDX = -1;
 const int BYTE_SIZE = 8;
 const int WIN_CONDITIONS_COUNT = 8;
 
-const char ME = 'X';
-const char OPPONENT = 'O';
-const char EMPTY = 'E';
+enum class BoardChars : char {
+	ME = 'X',
+	OPPONENT = 'O',
+	EMPTY = 'E',
+};
+
+enum class BoardGrade : int {
+	PLAYABLE = 44, // Only terminal boards' grades matter
+	I_WIN = 1,
+	DRAW = 0,
+	OPPONENT_WINS = -1,
+};
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -42,7 +52,8 @@ const char EMPTY = 'E';
 //-------------------------------------------------------------------------------------------------------------
 
 typedef unsigned short int Cells;
-const int BOARD_SIZE = sizeof(Cells) * BYTE_SIZE;
+const int CELLS_BYTES_COUNT = sizeof(Cells) * BYTE_SIZE;
+const Cells FIRST_CELL_BIT_1 = 32768; // 100 000 000 0000000
 const Cells FULL_BOARD = 65408; // 111 111 111 0000000
 
 const Cells WIN_CONDITIONS[WIN_CONDITIONS_COUNT] = {
@@ -64,12 +75,18 @@ public:
 	Board();
 	~Board();
 
-	char getCell(int rowIdx, int colIdx) const;
+	Cells getEmptyCells() const {
+		return emptyCells;
+	}
 
-	void setCell(int rowIdx, int colIdx, char value);
+	BoardChars getCell(int rowIdx, int colIdx) const;
+
+	void setCell(int rowIdx, int colIdx, BoardChars value);
+	void makeMove(Cells moveBit, BoardChars playerChar);
 
 	int emptyCell(int rowIdx, int colIdx) const;
-	int isTerminal() const;
+
+	BoardGrade grade() const;
 
 	Cells removeCells(int rowIdx, int colIdx, Cells cells) const;
 
@@ -98,17 +115,17 @@ Board::~Board() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-char Board::getCell(int rowIdx, int colIdx) const {
-	char cellValue = EMPTY;
+BoardChars Board::getCell(int rowIdx, int colIdx) const {
+	BoardChars cellValue = BoardChars::EMPTY;
 
 	if (!emptyCell(rowIdx, colIdx)) {
 		Cells removedCells = removeCells(rowIdx, colIdx, playersCells);
 
 		if (removedCells & 1) {
-			cellValue = ME;
+			cellValue = BoardChars::ME;
 		}
 		else {
-			cellValue = OPPONENT;
+			cellValue = BoardChars::OPPONENT;
 		}
 	}
 
@@ -118,18 +135,32 @@ char Board::getCell(int rowIdx, int colIdx) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Board::setCell(int rowIdx, int colIdx, char value) {
-	Cells newCellMask = 1;
-	newCellMask <<= BOARD_SIZE - 1;
+void Board::setCell(int rowIdx, int colIdx, BoardChars value) {
+	Cells newCellMask = FIRST_CELL_BIT_1;
 
 	newCellMask >>= colIdx;
 	newCellMask >>= rowIdx * BOARD_DIM;
 
-	if (ME == value) {
+	if (BoardChars::ME == value) {
 		playersCells |= newCellMask;
 	}
 
 	emptyCells |= newCellMask;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::makeMove(Cells moveBit, BoardChars playerChar) {
+	Cells cellAlreadyMarked = moveBit & emptyCells;
+
+	if (!cellAlreadyMarked) {
+		emptyCells |= moveBit;
+
+		if (BoardChars::ME == playerChar) {
+			playersCells |= moveBit;
+		}
+	}
 }
 
 //*************************************************************************************************************
@@ -150,14 +181,13 @@ int Board::emptyCell(int rowIdx, int colIdx) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-int Board::isTerminal() const {
-	int fullBoard = (FULL_BOARD == emptyCells);
+BoardGrade Board::grade() const {
+	BoardGrade res = BoardGrade::PLAYABLE;
 
 	int winner = false;
 
 	for (int winCondIdx = 0; winCondIdx < WIN_CONDITIONS_COUNT; ++winCondIdx) {
-		Cells winnerMask = WIN_CONDITIONS[winCondIdx];
-
+		const Cells winnerMask = WIN_CONDITIONS[winCondIdx];
 		const int notEmptyWinPattern = (winnerMask & emptyCells);
 
 		if (notEmptyWinPattern) {
@@ -167,13 +197,18 @@ int Board::isTerminal() const {
 			const int opponentWin = (0 == notEmptyPlayersCells);
 
 			if (iWin || opponentWin) {
+				res = iWin ? BoardGrade::I_WIN : BoardGrade::OPPONENT_WINS;
 				winner = true;
 				break;
 			}
 		}
 	}
 
-	return fullBoard || winner;
+	if (!winner && (FULL_BOARD == emptyCells)) {
+		res = BoardGrade::DRAW;
+	}
+
+	return res;
 }
 
 //*************************************************************************************************************
@@ -309,6 +344,7 @@ public:
 	bool edgeExists(NodeId parent, NodeId child) const;
 	vector<NodeId> backtrack(NodeId from, NodeId to) const;
 	NodeId getFirstNodeId() const;
+	NodeId getLastNodeId() const;
 
 private:
 	int nodesCount;
@@ -446,6 +482,13 @@ NodeId Graph::getFirstNodeId() const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+NodeId Graph::getLastNodeId() const {
+	return idNodeMap.rbegin()->first;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Graph::addEdge(NodeId parentId, NodeId childId) {
 	graph[parentId].push_back(childId);
 }
@@ -485,19 +528,19 @@ void Graph::createEdge(NodeId x, NodeId y) {
 
 struct MiniMaxResult {
 	MiniMaxResult() :
-		bestLeaveNode(nullptr),
+		bestLeaveNode(INVALID_ID),
 		evaluationValue(0)
 	{}
 
 	MiniMaxResult(
-		Node* bestLeaveNode,
+		NodeId bestLeaveNode,
 		int evaluationValue
 	) :
 		bestLeaveNode(bestLeaveNode),
 		evaluationValue(evaluationValue)
 	{}
 
-	Node* bestLeaveNode;
+	NodeId bestLeaveNode;
 	int evaluationValue;
 };
 
@@ -512,9 +555,9 @@ public:
 	~MiniMax();
 
 	void run(const Board& initialBoard);
-
-	MiniMaxResult maximize(const Node& node, int alpha, int beta);
-	MiniMaxResult minimize(const Node& node, int alpha, int beta);
+	Node makeChild(const Node& parent, Cells moveBit, BoardChars playerChar);
+	MiniMaxResult maximize(Node& node, int alpha, int beta);
+	MiniMaxResult minimize(Node& node, int alpha, int beta);
 
 private:
 	Graph miniMaxTree;
@@ -541,6 +584,7 @@ MiniMax::~MiniMax() {
 
 void MiniMax::run(const Board& initialBoard) {
 	miniMaxTree.createNode(0, 0, initialBoard);
+	MiniMaxResult miniMaxRes = maximize(*miniMaxTree.getNode(0), INT_MIN, INT_MAX);
 
 
 }
@@ -548,17 +592,93 @@ void MiniMax::run(const Board& initialBoard) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MiniMaxResult MiniMax::maximize(const Node& node, int alpha, int beta) {
-	if (node.getBoardPtr()->isTerminal()) {
+Node MiniMax::makeChild(const Node& parent, Cells moveBit, BoardChars playerChar) {
+	NodeId childId = miniMaxTree.getLastNodeId() + 1;
+	Node child = Node(childId, parent.getNodeDepth() + 1, parent.getId(), parent.getBoard());
+	child.getBoard().makeMove(moveBit, playerChar);
+	miniMaxTree.addEdge(parent.getId(), childId);
 
+	return child;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+MiniMaxResult MiniMax::maximize(Node& node, int alpha, int beta) {
+	const BoardGrade grade = node.getBoardPtr()->grade();
+
+	if (BoardGrade::PLAYABLE != grade) {
+		// Terminal state
+		return MiniMaxResult(node.getId(), static_cast<int>(grade));
 	}
+
+	MiniMaxResult res(INVALID_ID, INT_MAX);
+
+	Cells moveBit = FIRST_CELL_BIT_1;
+	for (int moveIdx = 0; moveIdx < BOARD_SIZE; ++moveIdx) {
+		if (node.getBoardPtr()->getEmptyCells() & moveBit) {
+			continue;
+		}
+
+		Node child = makeChild(node, moveBit, BoardChars::ME);
+		MiniMaxResult minRes = minimize(child, alpha, beta);
+
+		if (minRes.evaluationValue > res.evaluationValue) {
+			res = minRes;
+		}
+
+		if (res.evaluationValue >= beta) {
+			break;
+		}
+
+		if (res.evaluationValue > alpha) {
+			alpha = res.evaluationValue;
+		}
+
+		moveBit >>= 1;
+	}
+
+	return res;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MiniMaxResult MiniMax::minimize(const Node& node, int alpha, int beta) {
+MiniMaxResult MiniMax::minimize(Node& node, int alpha, int beta) {
+	const BoardGrade grade = node.getBoardPtr()->grade();
 
+	if (BoardGrade::PLAYABLE != grade) {
+		// Terminal state
+		return MiniMaxResult(node.getId(), static_cast<int>(grade));
+	}
+
+	MiniMaxResult res(INVALID_ID, INT_MIN);
+
+	Cells moveBit = FIRST_CELL_BIT_1;
+	for (int moveIdx = 0; moveIdx < BOARD_SIZE; ++moveIdx) {
+		if (node.getBoardPtr()->getEmptyCells() & moveBit) {
+			continue;
+		}
+
+		Node child = makeChild(node, moveBit, BoardChars::OPPONENT);
+		MiniMaxResult maxRes = maximize(child, alpha, beta);
+
+		if (maxRes.evaluationValue < res.evaluationValue) {
+			res = maxRes;
+		}
+
+		if (res.evaluationValue <= alpha) {
+			break;
+		}
+
+		if (res.evaluationValue < beta) {
+			beta = res.evaluationValue;
+		}
+
+		moveBit >>= 1;
+	}
+
+	return res;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -595,7 +715,8 @@ private:
 
 Game::Game() :
 	turnsCount(0),
-	board()
+	board(),
+	miniMax()
 {
 
 }
@@ -645,7 +766,7 @@ void Game::getTurnInput() {
 	cin >> opponentRow >> opponentCol; cin.ignore();
 
 	if (INVALID_ROW_COL_IDX != opponentRow && INVALID_ROW_COL_IDX != opponentCol) {
-		board.setCell(opponentRow, opponentCol, OPPONENT);
+		board.setCell(opponentRow, opponentCol, BoardChars::OPPONENT);
 	}
 
 	//int validActionCount;
@@ -668,7 +789,6 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	
 	miniMax.run(board);
 
 	cout << "0 0" << endl;
