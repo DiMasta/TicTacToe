@@ -18,7 +18,7 @@ using namespace std;
 
 const bool USE_HARDCODED_INPUT = 1;
 
-//#define OUTPUT_GAME_DATA
+#define OUTPUT_GAME_DATA
 //#define REDIRECT_CIN_FROM_FILE
 //#define REDIRECT_COUT_TO_FILE
 
@@ -830,8 +830,11 @@ void Game::getTurnInput() {
 		int row;
 		int col;
 		cin >> row >> col; cin.ignore();
+#ifdef OUTPUT_GAME_DATA
+		cerr << row << " " << col << endl;
+#endif // OUTPUT_GAME_DATA
 	}
-#endif //REDIRECT_CIN_FROM_FILE
+#endif // REDIRECT_CIN_FROM_FILE
 }
 
 //*************************************************************************************************************
