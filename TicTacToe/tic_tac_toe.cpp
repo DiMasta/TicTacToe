@@ -18,9 +18,12 @@ using namespace std;
 
 const bool USE_HARDCODED_INPUT = 1;
 
-#define OUTPUT_GAME_DATA
-#define REDIRECT_CIN_FROM_FILE
+//#define OUTPUT_GAME_DATA
+//#define REDIRECT_CIN_FROM_FILE
+//#define REDIRECT_COUT_TO_FILE
+
 const string INPUT_FILE_NAME = "input.txt";
+const string OUTPUT_FILE_NAME = "output.txt";
 
 const int INVALID_ID = -1;
 const int INVALID_NODE_DEPTH = -1;
@@ -69,16 +72,18 @@ const Cells WIN_CONDITIONS[WIN_CONDITIONS_COUNT] = {
 	10752	// 001 010 100 0000000
 };
 
-map<Cells, string> MOVES{
-	{ 32768, "0 0" }, // 100 000 000 0000000
-	{ 16384, "0 1" }, // 010 000 000 0000000
-	{ 8192 , "0 2" }, // 001 000 000 0000000
-	{ 4096 , "1 0" }, // 000 100 000 0000000
-	{ 2048 , "1 1" }, // 000 010 000 0000000
-	{ 1024 , "1 2" }, // 000 001 000 0000000
-	{ 512  , "2 0" }, // 000 000 100 0000000
-	{ 256  , "2 1" }, // 000 000 010 0000000
-	{ 128  , "2 2" }  // 000 000 001 0000000
+typedef vector<int> Move;
+
+map<Cells, Move> MOVES {
+	{ 32768, { 0, 0 } }, // 100 000 000 0000000
+	{ 16384, { 0, 1 } }, // 010 000 000 0000000
+	{ 8192 , { 0, 2 } }, // 001 000 000 0000000
+	{ 4096 , { 1, 0 } }, // 000 100 000 0000000
+	{ 2048 , { 1, 1 } }, // 000 010 000 0000000
+	{ 1024 , { 1, 2 } }, // 000 001 000 0000000
+	{ 512  , { 2, 0 } }, // 000 000 100 0000000
+	{ 256  , { 2, 1 } }, // 000 000 010 0000000
+	{ 128  , { 2, 2 } }  // 000 000 001 0000000
 };
 
 //-------------------------------------------------------------------------------------------------------------
@@ -354,9 +359,9 @@ public:
 	void setGraph(GraphMap graph) { this->graph = graph; }
 	void setIdNodeMap(IdNodeMap idNodeMap) { this->idNodeMap = idNodeMap; }
 
-	void createEdge(NodeId x, NodeId y);
 	void addEdge(NodeId parentId, NodeId childId);
-	void createNode(NodeId nodeId, int nodeDepth, const Board& board);
+	void createNode(NodeId nodeId, int nodeDepth, NodeId parentId, const Board& board);
+	void clear();
 	bool nodeCreated(NodeId nodeId) const;
 	void deleteAllNodes();
 	vector<NodeId> treeRootsIds() const;
@@ -399,8 +404,7 @@ Graph::Graph(int nodesCount, GraphMap graph) :
 //*************************************************************************************************************
 
 Graph::~Graph() {
-	deleteAllNodes();
-	graph.clear();
+	clear();
 }
 
 //*************************************************************************************************************
@@ -415,6 +419,9 @@ void Graph::deleteAllNodes() {
 			node = NULL;
 		}
 	}
+
+	idNodeMap.clear();
+	nodesCount = 0;
 }
 
 //*************************************************************************************************************
@@ -516,10 +523,11 @@ void Graph::addEdge(NodeId parentId, NodeId childId) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Graph::createNode(NodeId nodeId, int nodeDepth, const Board& board) {
+void Graph::createNode(NodeId nodeId, int nodeDepth, NodeId parentId, const Board& board) {
 	if (!nodeCreated(nodeId)) {
-		Node* node = new Node(nodeId, nodeDepth, INVALID_ID, board);
-		idNodeMap[node->getId()] = node;
+		Node* node = new Node(nodeId, nodeDepth, parentId, board);
+		idNodeMap[nodeId] = node;
+		graph[nodeId];
 		++nodesCount;
 	}
 }
@@ -527,18 +535,16 @@ void Graph::createNode(NodeId nodeId, int nodeDepth, const Board& board) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-bool Graph::nodeCreated(NodeId nodeId) const {
-	return idNodeMap.end() != idNodeMap.find(nodeId);
+void Graph::clear() {
+	deleteAllNodes();
+	graph.clear();
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Graph::createEdge(NodeId x, NodeId y) {
-	createNode(x, INVALID_NODE_DEPTH, Board());
-	createNode(y, INVALID_NODE_DEPTH, Board());
-
-	addEdge(x, y);
+bool Graph::nodeCreated(NodeId nodeId) const {
+	return idNodeMap.end() != idNodeMap.find(nodeId);
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -574,10 +580,11 @@ public:
 	MiniMax();
 	~MiniMax();
 
-	string run(const Board& initialBoard);
-	Node makeChild(const Node& parent, Cells moveBit, BoardChars playerChar);
+	Move run(const Board& initialBoard);
+	Node* makeChild(const Node& parent, Cells moveBit, BoardChars playerChar);
 	MiniMaxResult maximize(Node& node, int alpha, int beta);
 	MiniMaxResult minimize(Node& node, int alpha, int beta);
+	void clearMiniMaxTree();
 
 private:
 	Graph miniMaxTree;
@@ -602,8 +609,8 @@ MiniMax::~MiniMax() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-string MiniMax::run(const Board& initialBoard) {
-	miniMaxTree.createNode(0, 0, initialBoard);
+Move MiniMax::run(const Board& initialBoard) {
+	miniMaxTree.createNode(0, 0, INVALID_ID, initialBoard);
 	MiniMaxResult miniMaxRes = maximize(*miniMaxTree.getNode(0), INT_MIN, INT_MAX);
 
 	vector<NodeId> backTrackPath = miniMaxTree.backtrack(miniMaxRes.bestLeaveNode, 0);
@@ -620,13 +627,13 @@ string MiniMax::run(const Board& initialBoard) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node MiniMax::makeChild(const Node& parent, Cells moveBit, BoardChars playerChar) {
+Node* MiniMax::makeChild(const Node& parent, Cells moveBit, BoardChars playerChar) {
 	NodeId childId = miniMaxTree.getLastNodeId() + 1;
-	Node child = Node(childId, parent.getNodeDepth() + 1, parent.getId(), parent.getBoard());
-	child.getBoardPtr()->makeMove(moveBit, playerChar);
+	miniMaxTree.createNode(childId, parent.getNodeDepth() + 1, parent.getId(), parent.getBoard());
+	miniMaxTree.getNode(childId)->getBoardPtr()->makeMove(moveBit, playerChar);
 	miniMaxTree.addEdge(parent.getId(), childId);
 
-	return child;
+	return miniMaxTree.getNode(childId);
 }
 
 //*************************************************************************************************************
@@ -649,8 +656,8 @@ MiniMaxResult MiniMax::maximize(Node& node, int alpha, int beta) {
 			continue;
 		}
 
-		Node child = makeChild(node, moveBit, BoardChars::ME);
-		MiniMaxResult minRes = minimize(child, alpha, beta);
+		Node* child = makeChild(node, moveBit, BoardChars::ME);
+		MiniMaxResult minRes = minimize(*child, alpha, beta);
 
 		if (minRes.evaluationValue > res.evaluationValue) {
 			res = minRes;
@@ -690,8 +697,8 @@ MiniMaxResult MiniMax::minimize(Node& node, int alpha, int beta) {
 			continue;
 		}
 
-		Node child = makeChild(node, moveBit, BoardChars::OPPONENT);
-		MiniMaxResult maxRes = maximize(child, alpha, beta);
+		Node* child = makeChild(node, moveBit, BoardChars::OPPONENT);
+		MiniMaxResult maxRes = maximize(*child, alpha, beta);
 
 		if (maxRes.evaluationValue < res.evaluationValue) {
 			res = maxRes;
@@ -709,6 +716,13 @@ MiniMaxResult MiniMax::minimize(Node& node, int alpha, int beta) {
 	}
 
 	return res;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MiniMax::clearMiniMaxTree() {
+	miniMaxTree.clear();
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -837,7 +851,9 @@ void Game::makeTurn() {
 		makeFirstMove = false;
 	}
 	else {
-		cout << miniMax.run(board) << endl;
+		Move move = miniMax.run(board);
+		cout << move[0] << " " << move[1] << endl;
+		board.setCell(move[0], move[1], BoardChars::ME);
 	}
 }
 
@@ -845,6 +861,8 @@ void Game::makeTurn() {
 //*************************************************************************************************************
 
 void Game::turnEnd() {
+	miniMax.clearMiniMaxTree();
+
 	++turnsCount;
 }
 
@@ -882,7 +900,13 @@ int main(int argc, char** argv) {
 	ifstream in(INPUT_FILE_NAME);
 	streambuf *cinbuf = cin.rdbuf();
 	cin.rdbuf(in.rdbuf());
-#endif
+#endif // REDIRECT_CIN_FROM_FILE
+
+#ifdef REDIRECT_COUT_TO_FILE
+	ofstream out(OUTPUT_FILE_NAME);
+	streambuf *coutbuf = cout.rdbuf();
+	cout.rdbuf(out.rdbuf());
+#endif // REDIRECT_COUT_TO_FILE
 
 	Game game;
 	game.play();
@@ -890,3 +914,5 @@ int main(int argc, char** argv) {
 
 	return 0;
 }
+
+// seed = 772590946
