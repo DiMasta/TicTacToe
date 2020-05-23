@@ -22,7 +22,7 @@
 using namespace std;
 
 //#define REDIRECT_INPUT
-//#define OUTPUT_GAME_DATA
+#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
@@ -365,6 +365,30 @@ void Game::getGameInput() {
 //*************************************************************************************************************
 
 void Game::getTurnInput() {
+	int opponentRow;
+	int opponentCol;
+	cin >> opponentRow >> opponentCol; cin.ignore();
+
+#ifdef OUTPUT_GAME_DATA
+	cerr << opponentRow << SPACE << opponentCol << endl;
+#endif // OUTPUT_GAME_DATA
+
+	int validActionCount;
+	cin >> validActionCount; cin.ignore();
+
+#ifdef OUTPUT_GAME_DATA
+	cerr << validActionCount << endl;
+#endif // OUTPUT_GAME_DATA
+
+	for (int i = 0; i < validActionCount; i++) {
+		int row;
+		int col;
+		cin >> row >> col; cin.ignore();
+
+#ifdef OUTPUT_GAME_DATA
+		cerr << row << SPACE << col << endl;
+#endif // OUTPUT_GAME_DATA
+	}
 }
 
 //*************************************************************************************************************
@@ -377,6 +401,7 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
+	cout << "0 0" << endl;
 }
 
 //*************************************************************************************************************
