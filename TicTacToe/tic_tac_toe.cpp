@@ -43,8 +43,14 @@ static constexpr int PAIR = 2;
 static constexpr int BASE_2 = 2;
 static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
+static constexpr int BOARD_DIM = 9;
 
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
+
+enum class Player {
+	OPPONENT,
+	ME,
+};
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -54,6 +60,8 @@ const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 typedef int Coord;
 const Coord INVALID_COORD = -1;
 
+/// Y is row
+/// X is column
 class Coords {
 public:
 	Coords();
@@ -203,7 +211,7 @@ void Coords::debug() const {
 //*************************************************************************************************************
 
 void Coords::print() const {
-	cout << xCoord << " " << yCoord;
+	cout << yCoord << SPACE << xCoord << endl;
 }
 
 //*************************************************************************************************************
@@ -271,6 +279,82 @@ Coords DIRECTIONS[DIRECTIONS_COUNT] = {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+/// Represents the board with the played turns
+class Board {
+public:
+
+	/// Appply the given move for the given player
+	/// @param[in] move the coordinates on which the player plays
+	/// @param[in] the player whose turn it is
+	void playMove(const Coords move, const Player player);
+
+private:
+
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::playMove(const Coords move, const Player player) {
+
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+/// Run MonteCarlo tree search simulation to find the best move for the current state of the board
+class MonteCarloTreeSearch {
+public:
+	MonteCarloTreeSearch(Board& turnOriginalBoard);
+
+	void setOpponentMove(const Coords opponentMove) { this->opponentMove = opponentMove; }
+
+	Coords getBestMove() const { return bestMove; }
+
+	/// Find the best move
+	void solve();
+
+private:
+	// void selection();
+	// void expansion();
+	// void simulation();
+	// void update();
+
+	Coords opponentMove; ///< The last move for the opponent+
+	Coords bestMove; ///< The best move chosen from the simulation
+
+	Board& turnOriginalBoard; ///< Current state of the board
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+MonteCarloTreeSearch::MonteCarloTreeSearch(Board& turnOriginalBoard) :
+	turnOriginalBoard{ turnOriginalBoard }
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MonteCarloTreeSearch::solve() {
+	if (!opponentMove.isValid()) {
+		// The board is empty, could play anywhere, play in the middle
+		bestMove.setXCoord(BOARD_DIM / 2);
+		bestMove.setYCoord(BOARD_DIM / 2);
+	}
+	else {
+
+	}
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
 class Game {
 public:
 	Game();
@@ -291,8 +375,9 @@ public:
 
 private:
 	// Game specific members
-	int validRow; ///< Test valid moves
-	int validCol; ///< Test valid moves
+	Board board; ///< The board on which the game is played
+	MonteCarloTreeSearch monteCarloTreeSearch; ///< The AI algorithm
+	Coords opponentMove; ///< The coordinates on which the opponent plays
 
 	int turnsCount;
 	int stopGame;
@@ -302,8 +387,9 @@ private:
 //*************************************************************************************************************
 
 Game::Game() :
-	validRow{ 0 },
-	validCol{ 0 },
+	board{},
+	monteCarloTreeSearch{ board },
+	opponentMove{},
 	turnsCount{ 0 },
 	stopGame{ false }
 {
@@ -377,6 +463,9 @@ void Game::getTurnInput() {
 	cerr << opponentRow << SPACE << opponentCol << endl;
 #endif // OUTPUT_GAME_DATA
 
+	opponentMove.setXCoord(opponentCol);
+	opponentMove.setYCoord(opponentRow);
+
 	int validActionCount;
 	cin >> validActionCount; cin.ignore();
 
@@ -389,9 +478,6 @@ void Game::getTurnInput() {
 		int col;
 		cin >> row >> col; cin.ignore();
 
-		validRow = row;
-		validCol = col;
-
 #ifdef OUTPUT_GAME_DATA
 		cerr << row << SPACE << col << endl;
 #endif // OUTPUT_GAME_DATA
@@ -402,13 +488,15 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
+	board.playMove(opponentMove, Player::OPPONENT);
+	monteCarloTreeSearch.solve();
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	cout << validRow << SPACE << validCol << endl;
+	monteCarloTreeSearch.getBestMove().print();
 }
 
 //*************************************************************************************************************
