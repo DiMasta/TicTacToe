@@ -21,7 +21,7 @@
 
 using namespace std;
 
-//#define REDIRECT_INPUT
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -44,6 +44,10 @@ static constexpr int BASE_2 = 2;
 static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
 static constexpr int BOARD_DIM = 9;
+
+static constexpr long long FIRST_TURN_MS = 1000;
+static constexpr long long TURN_MS = 100;
+static constexpr long long BIAS_MS = 2;
 
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
@@ -304,14 +308,43 @@ void Board::playMove(const Coords move, const Player player) {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+/// Represents a Node in the MCST
+class Node {
+public:
+private:
+	Board board; ///< The game board state, which this node represents
+	vector<int> children; ///< List of children nodes' ids in the list of Nodes for the trees
+	int idx; ///< Unique id for the Node, may be removed after the game is solved
+};
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+/// Represent the search tree
+class Tree {
+public:
+private:
+	vector<Node> nodes; ///< All nodes used in the tree
+	int turnRootNodeIdx; ///< The root node for the current turn, from which the simulations starts
+};
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
 /// Run MonteCarlo tree search simulation to find the best move for the current state of the board
 class MonteCarloTreeSearch {
 public:
 	MonteCarloTreeSearch(Board& turnOriginalBoard);
 
 	void setOpponentMove(const Coords opponentMove) { this->opponentMove = opponentMove; }
+	void setTimeLimit(long long timeLimit) { this->timeLimit = timeLimit; }
 
 	Coords getBestMove() const { return bestMove; }
+	long long getTimeLimit() const { return timeLimit; }
 
 	/// Find the best move
 	void solve();
@@ -322,17 +355,19 @@ private:
 	// void simulation();
 	// void update();
 
-	Coords opponentMove; ///< The last move for the opponent+
+	Tree searchTree; ///< The actual search tree for the algotrithm
+	Coords opponentMove; ///< The last move for the opponent
 	Coords bestMove; ///< The best move chosen from the simulation
-
 	Board& turnOriginalBoard; ///< Current state of the board
+	long long timeLimit; ///< How long to simulate
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 MonteCarloTreeSearch::MonteCarloTreeSearch(Board& turnOriginalBoard) :
-	turnOriginalBoard{ turnOriginalBoard }
+	turnOriginalBoard{ turnOriginalBoard },
+	timeLimit{ 0 }
 {
 }
 
@@ -346,7 +381,14 @@ void MonteCarloTreeSearch::solve() {
 		bestMove.setYCoord(BOARD_DIM / 2);
 	}
 	else {
+		int sum = 0;
 
+		chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+		while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
+			++sum;
+		}
+
+		cerr << sum << endl;
 	}
 }
 
@@ -465,6 +507,7 @@ void Game::getTurnInput() {
 
 	opponentMove.setXCoord(opponentCol);
 	opponentMove.setYCoord(opponentRow);
+	monteCarloTreeSearch.setOpponentMove(opponentMove);
 
 	int validActionCount;
 	cin >> validActionCount; cin.ignore();
@@ -489,6 +532,14 @@ void Game::getTurnInput() {
 
 void Game::turnBegin() {
 	board.playMove(opponentMove, Player::OPPONENT);
+
+	if (0 == turnsCount) {
+		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
+	}
+	else {
+		monteCarloTreeSearch.setTimeLimit(TURN_MS - BIAS_MS);
+	}
+
 	monteCarloTreeSearch.solve();
 }
 
