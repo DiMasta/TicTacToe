@@ -44,10 +44,14 @@ static constexpr int BASE_2 = 2;
 static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
 static constexpr int BOARD_DIM = 9;
+static constexpr int MY_PLAYER_IDX = 1;
+static constexpr int OPPONENT_PLAYER_IDX = 2;
 
 static constexpr long long FIRST_TURN_MS = 1000;
 static constexpr long long TURN_MS = 100;
 static constexpr long long BIAS_MS = 2;
+
+static constexpr double MAX_DOUBLE = numeric_limits<double>::max();
 
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
@@ -308,14 +312,50 @@ void Board::playMove(const Coords move, const Player player) {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+class State {
+public:
+	void setPlayer(const int player) { this->player = player; }
+	void setVisits(const int visits) { this->visits = visits; }
+	void setWinScore(const double winScore) { this->winScore = winScore; }
+
+	int getPlayer() const { return player; }
+	int getVisits() const { return visits; }
+	double getWinScore() const { return winScore; }
+
+private:
+	Board board; ///< The game board state, which this node represents
+	int player; ///< The player index for which is this state
+	int visits; ///< How many times this state is visited by the MCTS alogrithm
+	double winScore; ///< Score of the state
+};
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
 /// Represents a Node in the MCST
 class Node {
 public:
+	const State& getState() const { return state; }
+	const vector<int>& getChildren() const { return children; }
+
+	/// Return the count of the children for this node
+	int getChildrenCount() const;
+
 private:
-	Board board; ///< The game board state, which this node represents
+	State state; ///< Game state information (wins/visits) including the board
 	vector<int> children; ///< List of children nodes' ids in the list of Nodes for the trees
+	int parentIdx; ///< The index of the parent node
 	int idx; ///< Unique id for the Node, may be removed after the game is solved
 };
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Node::getChildrenCount() const {
+	return static_cast<int>(children.size());
+}
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -325,10 +365,19 @@ private:
 /// Represent the search tree
 class Tree {
 public:
+	/// Return the node with the given index
+	const Node& getNode(const int nodeIdx) const;
+
 private:
 	vector<Node> nodes; ///< All nodes used in the tree
-	int turnRootNodeIdx; ///< The root node for the current turn, from which the simulations starts
 };
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+const Node& Tree::getNode(const int nodeIdx) const {
+	return nodes[nodeIdx];
+}
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -350,16 +399,28 @@ public:
 	void solve();
 
 private:
-	// void selection();
+	/// Starting form the current turn root, select most promising child node until a leaf node is reached
+	/// @return the idx of the selected node
+	int selectPromisingNode() const;
+
 	// void expansion();
 	// void simulation();
 	// void update();
+
+	/// Calculate the upper confidence bound for the given parmeters
+	/// @param[in] nodeWinScore
+	/// @param[in] totalVisits
+	/// @param[in] nodeVisit
+	/// @return the UCT score
+	double uct(const double nodeWinScore, const int totalVisits, const int nodeVisit) const;
 
 	Tree searchTree; ///< The actual search tree for the algotrithm
 	Coords opponentMove; ///< The last move for the opponent
 	Coords bestMove; ///< The best move chosen from the simulation
 	Board& turnOriginalBoard; ///< Current state of the board
 	long long timeLimit; ///< How long to simulate
+	double sqrtOf2; ///< Square root of tw, compute only once
+	int turnRootNodeIdx; ///< The root node for the current turn, from which the simulations starts
 };
 
 //*************************************************************************************************************
@@ -369,6 +430,7 @@ MonteCarloTreeSearch::MonteCarloTreeSearch(Board& turnOriginalBoard) :
 	turnOriginalBoard{ turnOriginalBoard },
 	timeLimit{ 0 }
 {
+	sqrtOf2 = sqrt(2.0);
 }
 
 //*************************************************************************************************************
@@ -381,15 +443,56 @@ void MonteCarloTreeSearch::solve() {
 		bestMove.setYCoord(BOARD_DIM / 2);
 	}
 	else {
-		int sum = 0;
-
 		chrono::steady_clock::time_point begin = chrono::steady_clock::now();
 		while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
-			++sum;
 		}
-
-		cerr << sum << endl;
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int MonteCarloTreeSearch::selectPromisingNode() const {
+	int currentNodeIdx = turnRootNodeIdx;
+
+	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
+		const Node& currentNode = searchTree.getNode(currentNodeIdx);
+		const int parentVisits = currentNode.getState().getVisits();
+		const vector<int>& nodeChildren = currentNode.getChildren();
+
+		double maxUCT = 0.0;
+		for (int childIdx = 0; childIdx < static_cast<int>(nodeChildren.size()); ++childIdx) {
+			const int childNodeIdx = nodeChildren[childIdx];
+			const Node& childNode = searchTree.getNode(childNodeIdx);
+			const State& childState = childNode.getState();
+			const double childUCT = uct(childState.getWinScore(), parentVisits, childState.getVisits());
+
+			if (childUCT > maxUCT) {
+				maxUCT = childUCT;
+				currentNodeIdx = childNodeIdx;
+			}
+		}
+	}
+
+	return currentNodeIdx;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+double MonteCarloTreeSearch::uct(const double nodeWinScore, const int totalVisits, const int nodeVisit) const {
+	double uctValue{ MAX_DOUBLE };
+
+	if (nodeVisit > 0) {
+		const double nodeVisitDouble = static_cast<double>(nodeVisit);
+		const double totalVisitsDouble = static_cast<double>(totalVisits);
+		const double winVisitsRatio = nodeWinScore / nodeVisitDouble;
+		const double confidentRatio = sqrtOf2 * sqrt(log(totalVisitsDouble) / nodeVisitDouble); // sqrt and log may slow the program
+
+		uctValue = winVisitsRatio + confidentRatio;
+	}
+
+	return uctValue;
 }
 
 //-------------------------------------------------------------------------------------------------------------
