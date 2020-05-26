@@ -357,18 +357,21 @@ public:
 	State(const Board& board, const int player, const int visits, const double winScore);
 
 	void setBoard(const Board& board) { this->board = board; }
+	void setMove(Coords move) { this->move = move; }
 	void setPlayer(const int player) { this->player = player; }
 	void setVisits(const int visits) { this->visits = visits; }
 	void setWinScore(const double winScore) { this->winScore = winScore; }
 
 	const Board& getBoard() const { return board; }
 	Board& getBoard() { return board; }
+	Coords getMove() { return move; }
 	int getPlayer() const { return player; }
 	int getVisits() const { return visits; }
 	double getWinScore() const { return winScore; }
 
 private:
 	Board board; ///< The game board state, which this node represents
+	Coords move; ///< Move which led to this state
 	int player; ///< The player index for which is this state
 	int visits; ///< How many times this state is visited by the MCTS alogrithm
 	double winScore; ///< Score of the state
@@ -537,6 +540,9 @@ private:
 	/// @return the UCT score
 	double uct(const double nodeWinScore, const int totalVisits, const int nodeVisit) const;
 
+	/// Conclude the search choosing the best move and updating the root
+	void searchEnd();
+
 	Tree searchTree; ///< The actual search tree for the algotrithm
 	Coords opponentMove; ///< The last move for the opponent
 	Coords bestMove; ///< The best move chosen from the simulation
@@ -572,8 +578,7 @@ void MonteCarloTreeSearch::solve() {
 		while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
 			const int selectedNodeIdx = selectPromisingNode();
 			const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
-			const Board& nodeBoard = selectedNode.getState().getBoard();
-			if (BoardStatus::IN_PROGRESS == nodeBoard.getStatus()) {
+			if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
 				expansion(selectedNodeIdx);
 			}
 
@@ -585,6 +590,8 @@ void MonteCarloTreeSearch::solve() {
 			int victoriousPlayer = simulation(nodeToExploreIdx);
 			backPropagation(nodeToExploreIdx, victoriousPlayer);
 		}
+
+		searchEnd();
 	}
 }
 
@@ -686,6 +693,27 @@ double MonteCarloTreeSearch::uct(const double nodeWinScore, const int totalVisit
 	}
 
 	return uctValue;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MonteCarloTreeSearch::searchEnd() {
+	const vector<int>& rootChildren = searchTree.getNode(turnRootNodeIdx).getChildren();
+
+	int bestChildIdx = INVALID_IDX;
+	double maxScore = 0.0;
+	for (int childIdx = 0; childIdx < static_cast<int>(rootChildren.size()); ++childIdx) {
+		const int childNodeIdx = rootChildren[childIdx];
+		const double childScore = searchTree.getNode(childNodeIdx).getState().getWinScore();
+		if (childScore > maxScore) {
+			maxScore = childScore;
+			bestChildIdx = childNodeIdx;
+		}
+	}
+
+	bestMove = searchTree.getNode(bestChildIdx).getState().getMove();
+	turnRootNodeIdx = bestChildIdx;
 }
 
 //-------------------------------------------------------------------------------------------------------------
