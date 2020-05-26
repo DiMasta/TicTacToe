@@ -56,6 +56,7 @@ static constexpr long long TURN_MS = 100;
 static constexpr long long BIAS_MS = 2;
 
 static constexpr double MAX_DOUBLE = numeric_limits<double>::max();
+static constexpr double WIN_VALUE = 10.0;
 
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
@@ -309,6 +310,10 @@ public:
 	/// Return list of all playable coordinates
 	vector<Coords> getAllPossibleMoves() const;
 
+	/// Play game with random moves until end of the game is reached
+	/// @return the result of the game
+	int simulateRandomGame();
+
 private:
 	BoardStatus status; ///< Status of the board
 };
@@ -335,6 +340,13 @@ vector<Coords> Board::getAllPossibleMoves() const {
 	return vector<Coords>();
 }
 
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Board::simulateRandomGame() {
+	return 0;
+}
+
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -350,6 +362,7 @@ public:
 	void setWinScore(const double winScore) { this->winScore = winScore; }
 
 	const Board& getBoard() const { return board; }
+	Board& getBoard() { return board; }
 	int getPlayer() const { return player; }
 	int getVisits() const { return visits; }
 	double getWinScore() const { return winScore; }
@@ -507,8 +520,15 @@ private:
 	/// @param[in] selectedNode the node to expand
 	void expansion(const int selectedNode);
 
-	// void simulation();
-	// void update();
+	/// Simulate game with random moves until the end
+	/// @pram[in] nodeToExploreIdx the node for which to simulate the game
+	/// @return the idx of the player who wins, -1 if draw
+	int simulation(const int nodeToExploreIdx);
+
+	/// Back propagate the simulation result through the parents until the root
+	/// @param[in] nodeToExploreIdx the explored node
+	/// @param[in] simulationResult the result form the simulation step
+	void backPropagation(const int nodeToExploreIdx, const int simulationResult);
 
 	/// Calculate the upper confidence bound for the given parmeters
 	/// @param[in] nodeWinScore
@@ -551,10 +571,19 @@ void MonteCarloTreeSearch::solve() {
 		chrono::steady_clock::time_point begin = chrono::steady_clock::now();
 		while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
 			const int selectedNodeIdx = selectPromisingNode();
-			const Board& nodeBoard = searchTree.getNode(selectedNodeIdx).getState().getBoard();
+			const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
+			const Board& nodeBoard = selectedNode.getState().getBoard();
 			if (BoardStatus::IN_PROGRESS == nodeBoard.getStatus()) {
 				expansion(selectedNodeIdx);
 			}
+
+			int nodeToExploreIdx = selectedNodeIdx;
+			if (selectedNode.getChildrenCount() > 0) {
+				nodeToExploreIdx = rand() % selectedNode.getChildrenCount();
+			}
+
+			int victoriousPlayer = simulation(nodeToExploreIdx);
+			backPropagation(nodeToExploreIdx, victoriousPlayer);
 		}
 	}
 }
@@ -613,6 +642,31 @@ void MonteCarloTreeSearch::expansion(const int selectedNode) {
 
 		const int childNodeIdx = searchTree.addNode(childNode);
 		parentNode.addChild(childNodeIdx);
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
+	return searchTree.getNode(nodeToExploreIdx).getState().getBoard().simulateRandomGame();;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int victoriousPlayer) {
+	int currentNodeIdx = nodeToExploreIdx;
+	while (INVALID_IDX != currentNodeIdx) {
+		Node& currentNode = searchTree.getNode(currentNodeIdx);
+		State& currentNodeState = currentNode.getState();
+		currentNodeState.setVisits(currentNodeState.getVisits() + 1);
+
+		if (currentNodeState.getPlayer() == victoriousPlayer) {
+			currentNodeState.setWinScore(currentNodeState.getWinScore() + WIN_VALUE);
+		}
+
+		currentNodeIdx = currentNode.getParentIdx();
 	}
 }
 
