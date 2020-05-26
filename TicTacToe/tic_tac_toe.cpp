@@ -44,11 +44,12 @@ static constexpr int BASE_2 = 2;
 static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
 static constexpr int BOARD_DIM = 9;
+static constexpr int PLAYER_TOGGLE = 3;
 static constexpr int MY_PLAYER_IDX = 1;
 static constexpr int OPPONENT_PLAYER_IDX = 2;
 
 static constexpr size_t NODES_TO_RESERVE = 2'000;
-static constexpr size_t MAX_CHILDREN_COUNT = 9;
+static constexpr size_t MAX_CHILDREN_COUNT = 81;
 
 static constexpr long long FIRST_TURN_MS = 1'000;
 static constexpr long long TURN_MS = 100;
@@ -58,9 +59,12 @@ static constexpr double MAX_DOUBLE = numeric_limits<double>::max();
 
 const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
 
-enum class Player {
-	OPPONENT,
-	ME,
+enum class BoardStatus {
+	INVALID = -1,
+	IN_PROGRESS,
+	DRAW,
+	OPPENT_WON,
+	I_WON,
 };
 
 //-------------------------------------------------------------------------------------------------------------
@@ -293,21 +297,42 @@ Coords DIRECTIONS[DIRECTIONS_COUNT] = {
 /// Represents the board with the played turns
 class Board {
 public:
+	Board();
+
+	BoardStatus getStatus() const { return status; }
 
 	/// Appply the given move for the given player
 	/// @param[in] move the coordinates on which the player plays
 	/// @param[in] the player whose turn it is
-	void playMove(const Coords move, const Player player);
+	void playMove(const Coords move, const int player);
+
+	/// Return list of all playable coordinates
+	vector<Coords> getAllPossibleMoves() const;
 
 private:
-
+	BoardStatus status; ///< Status of the board
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Board::playMove(const Coords move, const Player player) {
+Board::Board() :
+	status{ BoardStatus::IN_PROGRESS }
+{
+}
 
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::playMove(const Coords move, const int player) {
+
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+vector<Coords> Board::getAllPossibleMoves() const {
+	return vector<Coords>();
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -362,6 +387,9 @@ public:
 	const vector<int>& getChildren() const { return children; }
 	int getParentIdx() const { return parentIdx; }
 
+	/// Add child node wiht the given index
+	void addChild(const int childIdxNode);
+
 	/// Return the count of the children for this node
 	int getChildrenCount() const;
 
@@ -385,6 +413,13 @@ Node::Node(const State& state, const int parentIdx) :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Node::addChild(const int childIdxNode) {
+	children.push_back(childIdxNode);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 int Node::getChildrenCount() const {
 	return static_cast<int>(children.size());
 }
@@ -402,10 +437,14 @@ public:
 	void init(const Board& initialBoard);
 
 	/// Return the node with the given index
-	const Node& getNode(const int nodeIdx) const;
+	const Node& getNode(const int nodeIdx) const { return nodes[nodeIdx]; }
+	Node& getNode(const int nodeIdx) { return nodes[nodeIdx]; }
 
 	/// Set the starting player for the game
 	void setRootPlayer(const int playerIdx);
+
+	/// Add the given node to the tree and return its index
+	int addNode(const Node& node);
 
 private:
 	vector<Node> nodes; ///< All nodes used in the tree
@@ -425,15 +464,16 @@ void Tree::init(const Board& initialBoard) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-const Node& Tree::getNode(const int nodeIdx) const {
-	return nodes[nodeIdx];
+void Tree::setRootPlayer(const int playerIdx) {
+	nodes[0].getState().setPlayer(playerIdx);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Tree::setRootPlayer(const int playerIdx) {
-	nodes[0].getState().setPlayer(playerIdx);
+int Tree::addNode(const Node& node) {
+	nodes.push_back(node);
+	return static_cast<int>(nodes.size() - 1);
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -463,7 +503,10 @@ private:
 	/// @return the idx of the selected node
 	int selectPromisingNode() const;
 
-	// void expansion();
+	/// Expand the search tree with adding all possible child nodes to the selected node
+	/// @param[in] selectedNode the node to expand
+	void expansion(const int selectedNode);
+
 	// void simulation();
 	// void update();
 
@@ -488,7 +531,8 @@ private:
 
 MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
 	initialBoard{ initialBoard },
-	timeLimit{ 0 }
+	timeLimit{ 0 },
+	turnRootNodeIdx{ 0 }
 {
 	sqrtOf2 = sqrt(2.0);
 	searchTree.init(initialBoard);
@@ -506,6 +550,11 @@ void MonteCarloTreeSearch::solve() {
 	else {
 		chrono::steady_clock::time_point begin = chrono::steady_clock::now();
 		while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
+			const int selectedNodeIdx = selectPromisingNode();
+			const Board& nodeBoard = searchTree.getNode(selectedNodeIdx).getState().getBoard();
+			if (BoardStatus::IN_PROGRESS == nodeBoard.getStatus()) {
+				expansion(selectedNodeIdx);
+			}
 		}
 	}
 }
@@ -543,6 +592,28 @@ int MonteCarloTreeSearch::selectPromisingNode() const {
 	}
 
 	return currentNodeIdx;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MonteCarloTreeSearch::expansion(const int selectedNode) {
+	Node& parentNode = searchTree.getNode(selectedNode);
+	const State& parentState = parentNode.getState();
+	const Board& parentBoard = parentState.getBoard();
+	vector<Coords> allMoves = parentBoard.getAllPossibleMoves();
+
+	const int nextPlayer = PLAYER_TOGGLE - parentState.getPlayer();
+	for (int moveIdx = 0; moveIdx < static_cast<int>(allMoves.size()); ++moveIdx) {
+		Board childBoard{ parentBoard };
+		childBoard.playMove(allMoves[moveIdx], nextPlayer);
+
+		State childState{ childBoard, nextPlayer, 0, 0.0 };
+		Node childNode{ childState, selectedNode };
+
+		const int childNodeIdx = searchTree.addNode(childNode);
+		parentNode.addChild(childNodeIdx);
+	}
 }
 
 //*************************************************************************************************************
@@ -709,7 +780,7 @@ void Game::turnBegin() {
 		monteCarloTreeSearch.setRootPlayer(MY_PLAYER_IDX);
 	}
 
-	board.playMove(opponentMove, Player::OPPONENT);
+	board.playMove(opponentMove, OPPONENT_PLAYER_IDX);
 
 	if (0 == turnsCount) {
 		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
