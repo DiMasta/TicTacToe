@@ -24,7 +24,7 @@ using namespace std;
 #define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
-#define DEBUG_ONE_TURN
+//#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
 
 static const string INPUT_FILE_NAME = "input.txt";
@@ -44,6 +44,7 @@ static constexpr int TRIPLE = 3;
 static constexpr int BASE_2 = 2;
 static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
+static constexpr int STOP_INPUT = 10;
 static constexpr int BOARD_DIM = 9;
 static constexpr int PLAYER_TOGGLE = 3;
 static constexpr int MY_PLAYER_IDX = 0;
@@ -938,6 +939,12 @@ void Game::getTurnInput() {
 	int opponentRow;
 	int opponentCol;
 	cin >> opponentRow >> opponentCol; cin.ignore();
+
+#ifdef REDIRECT_INPUT
+	if (STOP_INPUT == opponentRow && STOP_INPUT == opponentCol) {
+		exit(0);
+	}
+#endif // REDIRECT_INPUT
 
 #ifdef OUTPUT_GAME_DATA
 	cerr << opponentRow << SPACE << opponentCol << endl;
