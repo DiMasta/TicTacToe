@@ -40,13 +40,18 @@ static constexpr int ZERO_CHAR = '0';
 static constexpr int DIRECTIONS_COUNT = 8;
 static constexpr int BYTE_SIZE = 8;
 static constexpr int PAIR = 2;
+static constexpr int TRIPLE = 2;
 static constexpr int BASE_2 = 2;
 static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
 static constexpr int BOARD_DIM = 9;
 static constexpr int PLAYER_TOGGLE = 3;
-static constexpr int MY_PLAYER_IDX = 1;
-static constexpr int OPPONENT_PLAYER_IDX = 2;
+static constexpr int MY_PLAYER_IDX = 0;
+static constexpr int OPPONENT_PLAYER_IDX = 1;
+
+static constexpr char MY_PLAYER_CHAR = 'X';
+static constexpr char OPPONENT_PLAYER_CHAR = 'O';
+static constexpr char EMPTY_CHAR = '_';
 
 static constexpr size_t NODES_TO_RESERVE = 2'000;
 static constexpr size_t MAX_CHILDREN_COUNT = 81;
@@ -58,7 +63,23 @@ static constexpr long long BIAS_MS = 2;
 static constexpr double MAX_DOUBLE = numeric_limits<double>::max();
 static constexpr double WIN_VALUE = 10.0;
 
-const float FLOAT_MAX_RAND = static_cast<float>(RAND_MAX);
+static constexpr int X_SQUARE = 0;
+static constexpr int O_SQUARE = 1;
+static constexpr int SQUARE_TYPES = 2; // 'X'; 'O'
+static constexpr short EMPTY_TICTACTOE_BOARD = 0; // 9 empty squares
+
+static constexpr short WIN_MASKS[] = {
+	0b0000'000'000'000'111, // Top row win
+	0b0000'000'000'111'000, // Middle row win
+	0b0000'000'111'000'000, // Bottom row win
+
+	0b0000'000'001'001'001, // Left column win
+	0b0000'000'010'010'010, // Middle column win
+	0b0000'000'100'100'100, // Right column win
+
+	0b0000'000'100'010'001, // Main diagonal win
+	0b0000'000'001'010'100, // Second diagonal win
+};
 
 enum class BoardStatus {
 	INVALID = -1,
@@ -302,6 +323,15 @@ public:
 
 	BoardStatus getStatus() const { return status; }
 
+	/// Initialize the board empty squares
+	void init();
+
+	/// Return the player index, played in the given position
+	int getPlayerIdx(const Coords pos) const;
+
+	/// Set the given player index in the given position
+	void setPlayerIdx(const Coords pos, const int playerIdx);
+
 	/// Appply the given move for the given player
 	/// @param[in] move the coordinates on which the player plays
 	/// @param[in] the player whose turn it is
@@ -314,7 +344,13 @@ public:
 	/// @return the result of the game
 	int simulateRandomGame();
 
+	/// Debug the board
+	void printBoard() const;
+
 private:
+	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
+	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
+
 	BoardStatus status; ///< Status of the board
 };
 
@@ -324,13 +360,63 @@ private:
 Board::Board() :
 	status{ BoardStatus::IN_PROGRESS }
 {
+	init();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::init() {
+	for (int sqType = 0; sqType < SQUARE_TYPES; ++sqType) {
+		for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+			board[sqType][miniBoardIdx] = EMPTY_TICTACTOE_BOARD;
+		}
+	}
+
+	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+		bigBoard[miniBoardIdx] = EMPTY_TICTACTOE_BOARD;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Board::getPlayerIdx(const Coords pos) const {
+	int playerIdx = INVALID_IDX;
+
+	const int bigBoardRowIdx = pos.getYCoord() / TRIPLE;
+	const int bigBoardColIdx = pos.getXCoord() / TRIPLE;
+	const int miniBoardIdx = (bigBoardRowIdx * TRIPLE) + bigBoardColIdx;
+
+	const int miniBoardRowIdx = pos.getYCoord() % TRIPLE;
+	const int miniBoardColIdx = pos.getXCoord() % TRIPLE;
+	const short miniBoardInnerIdx = (miniBoardRowIdx * TRIPLE) + miniBoardColIdx;
+
+	const short miniBoardXes = board[0][miniBoardIdx];
+	const short miniBoardOs = board[1][miniBoardIdx];
+
+	if (miniBoardXes & (1 << miniBoardInnerIdx)) {
+		playerIdx = MY_PLAYER_IDX;
+	}
+	else if (miniBoardOs & (1 << miniBoardInnerIdx)) {
+		playerIdx = OPPONENT_PLAYER_IDX;
+	}
+
+	return playerIdx;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
+
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Board::playMove(const Coords move, const int player) {
-
+	setPlayerIdx(move, player);
 }
 
 //*************************************************************************************************************
@@ -345,6 +431,32 @@ vector<Coords> Board::getAllPossibleMoves() const {
 
 int Board::simulateRandomGame() {
 	return 0;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::printBoard() const {
+	for (int rowIdx = 0; rowIdx < BOARD_DIM; ++rowIdx) {
+		for (int colIdx = 0; colIdx < BOARD_DIM; ++colIdx) {
+			const int playerIdx = getPlayerIdx({ rowIdx, colIdx });
+
+			switch (playerIdx) {
+				case MY_PLAYER_IDX: { cerr << MY_PLAYER_CHAR; break; }
+				case OPPONENT_PLAYER_IDX: { cerr << OPPONENT_PLAYER_CHAR; break; }
+				default: { cerr << EMPTY_CHAR; break; }
+			}
+
+			if (colIdx > 0 && 0 == colIdx % TRIPLE) {
+				cerr << SPACE;
+			}
+		}
+
+		cerr << endl;
+		if (rowIdx > 0 && 0 == rowIdx % TRIPLE) {
+			cerr << endl;
+		}
+	}
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -639,7 +751,7 @@ void MonteCarloTreeSearch::expansion(const int selectedNode) {
 	const Board& parentBoard = parentState.getBoard();
 	vector<Coords> allMoves = parentBoard.getAllPossibleMoves();
 
-	const int nextPlayer = PLAYER_TOGGLE - parentState.getPlayer();
+	const int nextPlayer = PLAYER_TOGGLE - parentState.getPlayer() + 1;
 	for (int moveIdx = 0; moveIdx < static_cast<int>(allMoves.size()); ++moveIdx) {
 		Board childBoard{ parentBoard };
 		childBoard.playMove(allMoves[moveIdx], nextPlayer);
