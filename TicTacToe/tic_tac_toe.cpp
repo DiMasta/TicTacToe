@@ -24,7 +24,7 @@ using namespace std;
 #define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
-//#define DEBUG_ONE_TURN
+#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
 
 static const string INPUT_FILE_NAME = "input.txt";
@@ -40,7 +40,7 @@ static constexpr int ZERO_CHAR = '0';
 static constexpr int DIRECTIONS_COUNT = 8;
 static constexpr int BYTE_SIZE = 8;
 static constexpr int PAIR = 2;
-static constexpr int TRIPLE = 2;
+static constexpr int TRIPLE = 3;
 static constexpr int BASE_2 = 2;
 static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
@@ -344,8 +344,7 @@ public:
 	/// @return the result of the game
 	int simulateRandomGame();
 
-	/// Debug the board
-	void printBoard() const;
+	friend ostream& operator<<(std::ostream& stream, const Board& board);
 
 private:
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
@@ -436,27 +435,30 @@ int Board::simulateRandomGame() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Board::printBoard() const {
+ostream& operator<<(std::ostream& stream, const Board& board) {
 	for (int rowIdx = 0; rowIdx < BOARD_DIM; ++rowIdx) {
+		if (rowIdx > 0 && 0 == rowIdx % TRIPLE) {
+			stream << endl;
+		}
+
 		for (int colIdx = 0; colIdx < BOARD_DIM; ++colIdx) {
-			const int playerIdx = getPlayerIdx({ rowIdx, colIdx });
+			if (colIdx > 0 && 0 == colIdx % TRIPLE) {
+				stream << SPACE;
+			}
+
+			const int playerIdx = board.getPlayerIdx({ rowIdx, colIdx });
 
 			switch (playerIdx) {
-				case MY_PLAYER_IDX: { cerr << MY_PLAYER_CHAR; break; }
-				case OPPONENT_PLAYER_IDX: { cerr << OPPONENT_PLAYER_CHAR; break; }
-				default: { cerr << EMPTY_CHAR; break; }
-			}
-
-			if (colIdx > 0 && 0 == colIdx % TRIPLE) {
-				cerr << SPACE;
+			case MY_PLAYER_IDX: { stream << MY_PLAYER_CHAR; break; }
+			case OPPONENT_PLAYER_IDX: { stream << OPPONENT_PLAYER_CHAR; break; }
+			default: { stream << EMPTY_CHAR; break; }
 			}
 		}
 
-		cerr << endl;
-		if (rowIdx > 0 && 0 == rowIdx % TRIPLE) {
-			cerr << endl;
-		}
+		stream << endl;
 	}
+
+	return stream;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -967,6 +969,8 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
+	cerr << board << endl;
+
 	if (0 == turnsCount && opponentMove.isValid()) {
 		monteCarloTreeSearch.setRootPlayer(OPPONENT_PLAYER_IDX);
 	}
