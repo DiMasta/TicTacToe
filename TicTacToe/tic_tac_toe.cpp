@@ -30,7 +30,8 @@ using namespace std;
 static const string INPUT_FILE_NAME = "input.txt";
 static const string OUTPUT_FILE_NAME = "output.txt";
 static const string EMPTY_STRING = "";
-static const string SPACE = " ";
+static constexpr char SPACE = ' ';
+static constexpr char TAB = '\t';
 
 static constexpr int INVALID_ID = -1;
 static constexpr int INVALID_IDX = -1;
@@ -128,13 +129,12 @@ public:
 	//Coords& operator*=(Coord numerical);
 
 	bool isValid() const;
-	void debug() const;
-	void print() const;
 
 	Coord distance(const Coords& coords) const;
 	void roundCoords();
 
 	friend Coord distance(const Coords& point0, const Coords& point1);
+	friend ostream& operator<<(ostream& stream, const Coords& coords);
 private:
 	Coord xCoord;
 	Coord yCoord;
@@ -241,20 +241,6 @@ bool Coords::isValid() const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Coords::debug() const {
-	cerr << "Position: X=" << xCoord << ", Y=" << yCoord << endl;
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Coords::print() const {
-	cout << yCoord << SPACE << xCoord << endl;
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
 Coord Coords::distance(const Coords& coords) const {
 	Coord kat0 = coords.xCoord - xCoord;
 	Coord kat1 = coords.yCoord - yCoord;
@@ -281,6 +267,14 @@ Coord distance(const Coords& point0, const Coords& point1) {
 	Coord distance = static_cast<Coord>(sqrt((lineXLenght * lineXLenght) + (lineYLenght * lineYLenght)));
 
 	return distance;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+ostream& operator<<(ostream& stream, const Coords& coords) {
+	stream << coords.yCoord << SPACE << coords.xCoord;
+	return stream;
 }
 
 //*************************************************************************************************************
@@ -409,7 +403,15 @@ int Board::getPlayerIdx(const Coords pos) const {
 //*************************************************************************************************************
 
 void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
+	const int bigBoardRowIdx = pos.getYCoord() / TRIPLE;
+	const int bigBoardColIdx = pos.getXCoord() / TRIPLE;
+	const int miniBoardIdx = (bigBoardRowIdx * TRIPLE) + bigBoardColIdx;
 
+	const int miniBoardRowIdx = pos.getYCoord() % TRIPLE;
+	const int miniBoardColIdx = pos.getXCoord() % TRIPLE;
+	const short miniBoardInnerIdx = (miniBoardRowIdx * TRIPLE) + miniBoardColIdx;
+
+	board[playerIdx][miniBoardIdx] |= 1 << miniBoardInnerIdx;
 }
 
 //*************************************************************************************************************
@@ -444,7 +446,7 @@ ostream& operator<<(std::ostream& stream, const Board& board) {
 
 		for (int colIdx = 0; colIdx < BOARD_DIM; ++colIdx) {
 			if (colIdx > 0 && 0 == colIdx % TRIPLE) {
-				stream << SPACE;
+				stream << SPACE << SPACE << SPACE;
 			}
 
 			const int playerIdx = board.getPlayerIdx({ rowIdx, colIdx });
@@ -827,8 +829,10 @@ void MonteCarloTreeSearch::searchEnd() {
 		}
 	}
 
-	bestMove = searchTree.getNode(bestChildIdx).getState().getMove();
-	turnRootNodeIdx = bestChildIdx;
+	if (INVALID_IDX != bestChildIdx) {
+		bestMove = searchTree.getNode(bestChildIdx).getState().getMove();
+		turnRootNodeIdx = bestChildIdx;
+	}
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -976,16 +980,18 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
-	cerr << board << endl;
+	cerr << board << endl << "*************************************" << endl;;
 
 	if (0 == turnsCount && opponentMove.isValid()) {
 		monteCarloTreeSearch.setRootPlayer(OPPONENT_PLAYER_IDX);
+		board.playMove(opponentMove, OPPONENT_PLAYER_IDX);
 	}
 	else if (0 == turnsCount) {
 		monteCarloTreeSearch.setRootPlayer(MY_PLAYER_IDX);
 	}
-
-	board.playMove(opponentMove, OPPONENT_PLAYER_IDX);
+	else {
+		board.playMove(opponentMove, OPPONENT_PLAYER_IDX);
+	}
 
 	if (0 == turnsCount) {
 		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
@@ -1001,7 +1007,9 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	monteCarloTreeSearch.getBestMove().print();
+	const Coords bestMove = monteCarloTreeSearch.getBestMove();
+	cout << bestMove << endl;
+	board.playMove(bestMove, MY_PLAYER_IDX);
 }
 
 //*************************************************************************************************************
@@ -1060,3 +1068,5 @@ int main(int argc, char** argv) {
 
 	return 0;
 }
+
+// seed = 929496576
