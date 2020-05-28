@@ -47,7 +47,7 @@ static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
 static constexpr int STOP_INPUT = 10;
 static constexpr int BOARD_DIM = 9;
-static constexpr int PLAYER_TOGGLE = 3;
+static constexpr int PLAYER_TOGGLE = 2;
 static constexpr int MY_PLAYER_IDX = 0;
 static constexpr int OPPONENT_PLAYER_IDX = 1;
 static constexpr int MONTE_CARLO_ITERATIONS = 2;
@@ -319,14 +319,20 @@ Coords DIRECTIONS[DIRECTIONS_COUNT] = {
 class Board {
 public:
 	Board();
+	Board(const Board& rhs);
 
+	void setPlayer(const int player) { this->player = player; }
 	void setMove(Coords move) { this->move = move; }
 
 	BoardStatus getStatus() const { return status; }
+	int getPlayer() const { return player; }
 	Coords getMove() { return move; }
 
 	/// Initialize the board empty squares
 	void init();
+
+	/// Copy rhs board into this board
+	void copy(const Board& rhs);
 
 	/// Determine the mini board index by the given global position
 	/// @param[in] pos the position on the big board
@@ -350,10 +356,9 @@ public:
 	/// Set the given player index in the given position
 	void setPlayerIdx(const Coords pos, const int playerIdx);
 
-	/// Appply the given move for the given player
+	/// Appply the given move for the given player and chage the player
 	/// @param[in] move the coordinates on which the player plays
-	/// @param[in] the player whose turn it is
-	void playMove(const Coords move, const int player);
+	void playMove(const Coords move);
 
 	/// Return list of all playable coordinates
 	vector<Coords> getAllPossibleMoves() const;
@@ -374,6 +379,7 @@ private:
 
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
 	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
+	int player; ///< The player index for which is this state
 	Coords move; ///< Move which led to this board
 	BoardStatus status; ///< Status of the board
 };
@@ -390,6 +396,13 @@ Board::Board() :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+Board::Board(const Board& rhs) {
+	copy(rhs);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Board::init() {
 	for (int sqType = 0; sqType < SQUARE_TYPES; ++sqType) {
 		for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
@@ -399,6 +412,22 @@ void Board::init() {
 
 	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
 		bigBoard[miniBoardIdx] = EMPTY_TICTACTOE_BOARD;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::copy(const Board& rhs) {
+	setMove(rhs.move);
+	this->status = rhs.status;
+
+	for (int sqTypeIdx = 0; sqTypeIdx < SQUARE_TYPES; ++sqTypeIdx) {
+		for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+			this->board[sqTypeIdx][miniBoardIdx] = rhs.board[sqTypeIdx][miniBoardIdx];
+		}
+
+		this->bigBoard[sqTypeIdx] = rhs.bigBoard[sqTypeIdx];
 	}
 }
 
@@ -475,9 +504,10 @@ void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Board::playMove(const Coords move, const int player) {
+void Board::playMove(const Coords move) {
 	setMove(move);
 	setPlayerIdx(move, player);
+	player = PLAYER_TOGGLE - (player + 1);
 }
 
 //*************************************************************************************************************
@@ -498,6 +528,13 @@ vector<Coords> Board::getAllPossibleMoves() const {
 //*************************************************************************************************************
 
 int Board::simulateRandomGame() {
+	while (BoardStatus::IN_PROGRESS == status) {
+		vector<Coords> allMoves = getAllPossibleMoves();
+
+		Coords randomMove = allMoves[rand() % allMoves.size()];
+		//playMove(randomMove)
+	}
+
 	return 0;
 }
 
@@ -505,17 +542,7 @@ int Board::simulateRandomGame() {
 //*************************************************************************************************************
 
 Board& Board::operator=(const Board& rhs) {
-	setMove(rhs.move);
-	this->status = rhs.status;
-
-	for (int sqTypeIdx = 0; sqTypeIdx < SQUARE_TYPES; ++sqTypeIdx) {
-		for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
-			this->board[sqTypeIdx][miniBoardIdx] = rhs.board[sqTypeIdx][miniBoardIdx];
-		}
-
-		this->bigBoard[sqTypeIdx] = rhs.bigBoard[sqTypeIdx];
-	}
-
+	copy(rhs);
 	return *this;
 }
 
@@ -571,9 +598,9 @@ ostream& operator<<(std::ostream& stream, const Board& board) {
 			const int playerIdx = board.getPlayerIdx({ colIdx, rowIdx });
 
 			switch (playerIdx) {
-			case MY_PLAYER_IDX: { stream << MY_PLAYER_CHAR; break; }
-			case OPPONENT_PLAYER_IDX: { stream << OPPONENT_PLAYER_CHAR; break; }
-			default: { stream << EMPTY_CHAR; break; }
+				case MY_PLAYER_IDX: { stream << MY_PLAYER_CHAR; break; }
+				case OPPONENT_PLAYER_IDX: { stream << OPPONENT_PLAYER_CHAR; break; }
+				default: { stream << EMPTY_CHAR; break; }
 			}
 		}
 
@@ -590,22 +617,19 @@ ostream& operator<<(std::ostream& stream, const Board& board) {
 
 class State {
 public:
-	State(const Board& board, const int player, const int visits, const double winScore);
+	State(const Board& board, const int visits, const double winScore);
 
 	void setBoard(const Board& board) { this->board = board; }
-	void setPlayer(const int player) { this->player = player; }
 	void setVisits(const int visits) { this->visits = visits; }
 	void setWinScore(const double winScore) { this->winScore = winScore; }
 
 	const Board& getBoard() const { return board; }
 	Board& getBoard() { return board; }
-	int getPlayer() const { return player; }
 	int getVisits() const { return visits; }
 	double getWinScore() const { return winScore; }
 
 private:
 	Board board; ///< The game board state, which this node represents
-	int player; ///< The player index for which is this state
 	int visits; ///< How many times this state is visited by the MCTS alogrithm
 	double winScore; ///< Score of the state
 };
@@ -613,9 +637,8 @@ private:
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-State::State(const Board& board, const int player, const int visits, const double winScore) :
+State::State(const Board& board, const int visits, const double winScore) :
 	board{ board },
-	player{ player },
 	visits{ visits },
 	winScore{ winScore }
 {
@@ -704,7 +727,7 @@ private:
 void Tree::init(const Board& initialBoard) {
 	nodes.reserve(NODES_TO_RESERVE);
 
-	State rootState{ initialBoard, 0, 0, 0 };
+	State rootState{ initialBoard, 0, 0 };
 	Node rootNode{ rootState, INVALID_IDX };
 	nodes.push_back(rootNode);
 }
@@ -713,7 +736,7 @@ void Tree::init(const Board& initialBoard) {
 //*************************************************************************************************************
 
 void Tree::setRootPlayer(const int playerIdx) {
-	nodes[0].getState().setPlayer(playerIdx);
+	nodes[0].getState().getBoard().setPlayer(playerIdx);
 }
 
 //*************************************************************************************************************
@@ -877,12 +900,11 @@ void MonteCarloTreeSearch::expansion(const int selectedNode) {
 	const Board& parentBoard = parentState.getBoard();
 	vector<Coords> allMoves = parentBoard.getAllPossibleMoves();
 
-	const int nextPlayer = PLAYER_TOGGLE - parentState.getPlayer() + 1;
 	for (int moveIdx = 0; moveIdx < static_cast<int>(allMoves.size()); ++moveIdx) {
 		Board childBoard{ parentBoard };
-		childBoard.playMove(allMoves[moveIdx], nextPlayer);
+		childBoard.playMove(allMoves[moveIdx]);
 
-		State childState{ childBoard, nextPlayer, 0, 0.0 };
+		State childState{ childBoard, 0, 0.0 };
 		Node childNode{ childState, selectedNode };
 
 		const int childNodeIdx = searchTree.addNode(childNode);
@@ -894,7 +916,10 @@ void MonteCarloTreeSearch::expansion(const int selectedNode) {
 //*************************************************************************************************************
 
 int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
-	return searchTree.getNode(nodeToExploreIdx).getState().getBoard().simulateRandomGame();;
+	// Copy board, so no need to reset afterwards
+	Board boardToSimulate = searchTree.getNode(nodeToExploreIdx).getState().getBoard();
+
+	return boardToSimulate.simulateRandomGame();
 }
 
 //*************************************************************************************************************
@@ -907,7 +932,7 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 		State& currentNodeState = currentNode.getState();
 		currentNodeState.setVisits(currentNodeState.getVisits() + 1);
 
-		if (currentNodeState.getPlayer() == victoriousPlayer) {
+		if (currentNodeState.getBoard().getPlayer() == victoriousPlayer) {
 			currentNodeState.setWinScore(currentNodeState.getWinScore() + WIN_VALUE);
 		}
 
@@ -1116,14 +1141,14 @@ void Game::getTurnInput() {
 void Game::turnBegin() {
 	if (0 == turnsCount && opponentMove.isValid()) {
 		monteCarloTreeSearch.setRootPlayer(OPPONENT_PLAYER_IDX);
-		board.playMove(opponentMove, OPPONENT_PLAYER_IDX);
+		board.playMove(opponentMove);
 	}
 	else if (0 == turnsCount) {
 		monteCarloTreeSearch.setRootPlayer(MY_PLAYER_IDX);
-		board.playMove({ BOARD_DIM / 2, BOARD_DIM / 2 }, MY_PLAYER_IDX); // Play in the middle if I'm first
+		board.playMove({ BOARD_DIM / 2, BOARD_DIM / 2 }); // Play in the middle if I'm first
 	}
 	else {
-		board.playMove(opponentMove, OPPONENT_PLAYER_IDX);
+		board.playMove(opponentMove);
 	}
 
 	cerr << board << endl << "*************************************" << endl;
@@ -1146,7 +1171,7 @@ void Game::makeTurn() {
 	cout << bestMove << endl;
 
 	if (opponentMove.isValid()) {
-		board.playMove(bestMove, MY_PLAYER_IDX);
+		board.playMove(bestMove);
 	}
 }
 
