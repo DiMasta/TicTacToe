@@ -71,7 +71,9 @@ static constexpr int O_SQUARE = 1;
 static constexpr int SQUARE_TYPES = 2; // 'X'; 'O'
 static constexpr short EMPTY_TICTACTOE_BOARD = 0; // 9 empty squares
 
-static constexpr short WIN_MASKS[] = {
+static constexpr short FULL_BOARD_MASK = 0b0000'000'111'111'111;
+static constexpr int WIN_MASKS_COUNT = 8;
+static constexpr short WIN_MASKS[WIN_MASKS_COUNT] = {
 	0b0000'000'000'000'111, // Top row win
 	0b0000'000'000'111'000, // Middle row win
 	0b0000'000'111'000'000, // Bottom row win
@@ -363,6 +365,9 @@ public:
 	/// Return list of all playable coordinates
 	vector<Coords> getAllPossibleMoves() const;
 
+	/// Toggle player
+	int togglePlayer(const int playerToToggle) const;
+
 	/// Play game with random moves until end of the game is reached
 	/// @return the result of the game
 	int simulateRandomGame();
@@ -377,19 +382,27 @@ private:
 	/// Return possible moves in all mini boards
 	vector<Coords> getAllPossibleMovesForAllMiniBoards() const;
 
+	/// Return true if the player wins on the given board
+	bool checkForWin(const short boardToCheck) const;
+
+	/// Return true if the given board is full
+	bool boardFull(const short boardToCheck) const;
+
+	/// Return true if the given mini board is playable
+	bool playableMiniBoard(const int miniBoardIdx) const;
+
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
 	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
 	int player; ///< The player index for which is this state
 	Coords move; ///< Move which led to this board
 	BoardStatus status; ///< Status of the board
+	short bigBoardDraw; ///< Flags indicating which mini boards ended in draw
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Board::Board() :
-	status{ BoardStatus::IN_PROGRESS }
-{
+Board::Board() {
 	init();
 }
 
@@ -413,6 +426,10 @@ void Board::init() {
 	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
 		bigBoard[miniBoardIdx] = EMPTY_TICTACTOE_BOARD;
 	}
+
+	player = INVALID_IDX;
+	status = BoardStatus::IN_PROGRESS;
+	bigBoardDraw = EMPTY_TICTACTOE_BOARD;
 }
 
 //*************************************************************************************************************
@@ -422,6 +439,7 @@ void Board::copy(const Board& rhs) {
 	this->player = rhs.player;
 	this->move = rhs.move;
 	this->status = rhs.status;
+	this->bigBoardDraw = rhs.bigBoardDraw;
 
 	for (int sqTypeIdx = 0; sqTypeIdx < SQUARE_TYPES; ++sqTypeIdx) {
 		for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
@@ -508,7 +526,24 @@ void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
 void Board::playMove(const Coords move) {
 	setMove(move);
 	setPlayerIdx(move, player);
-	player = PLAYER_TOGGLE - (player + 1);
+
+	const int miniBoardIdx = getMiniBoardIdx(move);
+	const short miniBoard = board[player][miniBoardIdx];
+	if (checkForWin(miniBoard)) {
+		bigBoard[player] |= (1 << miniBoardIdx);
+	}
+	else if (boardFull(board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx])) {
+		bigBoardDraw |= (1 << miniBoardIdx);
+	}
+
+	if (checkForWin(bigBoard[player])) {
+		status = (MY_PLAYER_IDX == player) ? BoardStatus::I_WON : BoardStatus::OPPONENT_WON;
+	}
+	else if (boardFull(bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw)) {
+		status = BoardStatus::DRAW;
+	}
+
+	player = togglePlayer(player);
 }
 
 //*************************************************************************************************************
@@ -540,7 +575,15 @@ int Board::simulateRandomGame() {
 		cerr << *this << endl << "*************************************" << endl;
 	}
 
-	return 0;
+	int victoriousPlayer = INVALID_IDX;
+	if (BoardStatus::I_WON == status) {
+		victoriousPlayer = MY_PLAYER_IDX;
+	}
+	else if (BoardStatus::OPPONENT_WON == status) {
+		victoriousPlayer = OPPONENT_PLAYER_IDX;
+	}
+
+	return victoriousPlayer;
 }
 
 //*************************************************************************************************************
@@ -554,18 +597,27 @@ Board& Board::operator=(const Board& rhs) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+int Board::togglePlayer(const int playerToToggle) const {
+	return PLAYER_TOGGLE - (playerToToggle + 1);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 vector<Coords> Board::getAllPossibleMovesForMiniBoard(const int miniBoardIdx) const {
 	vector<Coords> moves;
 	moves.reserve(BOARD_DIM);
 
-	const short opponentBoard = board[OPPONENT_PLAYER_IDX][miniBoardIdx];
-	const short myBoard = board[MY_PLAYER_IDX][miniBoardIdx];
+	if (playableMiniBoard(miniBoardIdx)) {
+		const short opponentBoard = board[OPPONENT_PLAYER_IDX][miniBoardIdx];
+		const short myBoard = board[MY_PLAYER_IDX][miniBoardIdx];
 
-	for (int sqIdx = 0; sqIdx < BOARD_DIM; ++sqIdx) {
-		const short squareMask = 1 << sqIdx;
-		if (!(opponentBoard & squareMask) && !(myBoard & squareMask)) {
-			Coords squarePosition = getBigBoardPosition(miniBoardIdx, sqIdx);
-			moves.push_back(squarePosition);
+		for (int sqIdx = 0; sqIdx < BOARD_DIM; ++sqIdx) {
+			const short squareMask = 1 << sqIdx;
+			if (!(opponentBoard & squareMask) && !(myBoard & squareMask)) {
+				Coords squarePosition = getBigBoardPosition(miniBoardIdx, sqIdx);
+				moves.push_back(squarePosition);
+			}
 		}
 	}
 
@@ -589,6 +641,40 @@ vector<Coords> Board::getAllPossibleMovesForAllMiniBoards() const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+bool Board::checkForWin(const short boardToCheck) const {
+	bool playerWon = false;
+
+	for (int winMaskIdx = 0; winMaskIdx < WIN_MASKS_COUNT; ++winMaskIdx) {
+		if (WIN_MASKS[winMaskIdx] == (WIN_MASKS[winMaskIdx] & boardToCheck)) {
+			playerWon = true;
+			break;
+		}
+	}
+
+	return playerWon;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Board::boardFull(const short boardToCheck) const {
+	return FULL_BOARD_MASK == (FULL_BOARD_MASK & boardToCheck);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Board::playableMiniBoard(const int miniBoardIdx) const {
+	const short miniBoardMask = 1 << miniBoardIdx;
+	const bool boardWon = (miniBoardMask & bigBoard[MY_PLAYER_IDX]) || (miniBoardMask & bigBoard[OPPONENT_PLAYER_IDX]);
+	const bool boardDraw = miniBoardMask & bigBoardDraw;
+
+	return !boardWon && !boardDraw;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 ostream& operator<<(std::ostream& stream, const Board& board) {
 	for (int rowIdx = 0; rowIdx < BOARD_DIM; ++rowIdx) {
 		if (rowIdx > 0 && 0 == rowIdx % TRIPLE) {
@@ -600,7 +686,7 @@ ostream& operator<<(std::ostream& stream, const Board& board) {
 				stream << SPACE << SPACE << SPACE;
 			}
 
-			const int playerIdx = board.getPlayerIdx({ colIdx, rowIdx });
+			const int playerIdx = board.getPlayerIdx({ rowIdx, colIdx });
 
 			switch (playerIdx) {
 				case MY_PLAYER_IDX: { stream << MY_PLAYER_CHAR; break; }
@@ -937,7 +1023,9 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 		State& currentNodeState = currentNode.getState();
 		currentNodeState.setVisits(currentNodeState.getVisits() + 1);
 
-		if (currentNodeState.getBoard().getPlayer() == victoriousPlayer) {
+		int ownerPlayer = currentNodeState.getBoard().getPlayer();
+		ownerPlayer = currentNodeState.getBoard().togglePlayer(ownerPlayer);
+		if (ownerPlayer == victoriousPlayer) {
 			currentNodeState.setWinScore(currentNodeState.getWinScore() + WIN_VALUE);
 		}
 
@@ -1145,11 +1233,11 @@ void Game::getTurnInput() {
 
 void Game::turnBegin() {
 	if (0 == turnsCount && opponentMove.isValid()) {
-		monteCarloTreeSearch.setRootPlayer(OPPONENT_PLAYER_IDX);
+		board.setPlayer(OPPONENT_PLAYER_IDX);
 		board.playMove(opponentMove);
 	}
 	else if (0 == turnsCount) {
-		monteCarloTreeSearch.setRootPlayer(MY_PLAYER_IDX);
+		board.setPlayer(MY_PLAYER_IDX);
 		board.playMove({ BOARD_DIM / 2, BOARD_DIM / 2 }); // Play in the middle if I'm first
 	}
 	else {
