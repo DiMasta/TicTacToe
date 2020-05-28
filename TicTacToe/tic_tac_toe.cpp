@@ -340,6 +340,7 @@ public:
 	/// @return the result of the game
 	int simulateRandomGame();
 
+	Board& operator=(const Board& board);
 	friend ostream& operator<<(std::ostream& stream, const Board& board);
 
 private:
@@ -434,6 +435,23 @@ vector<Coords> Board::getAllPossibleMoves() const {
 
 int Board::simulateRandomGame() {
 	return 0;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Board& Board::operator=(const Board& rhs) {
+	this->status = rhs.status;
+
+	for (int sqTypeIdx = 0; sqTypeIdx < SQUARE_TYPES; ++sqTypeIdx) {
+		for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+			this->board[sqTypeIdx][miniBoardIdx] = rhs.board[sqTypeIdx][miniBoardIdx];
+		}
+
+		this->bigBoard[sqTypeIdx] = rhs.bigBoard[sqTypeIdx];
+	}
+
+	return *this;
 }
 
 //*************************************************************************************************************
@@ -659,6 +677,10 @@ private:
 	/// @return the UCT score
 	double uct(const double nodeWinScore, const int totalVisits, const int nodeVisit) const;
 
+	/// Start the search
+	/// @param[in] turnIdx the turn index
+	void searchBegin(const int turnIdx);
+
 	/// Conclude the search choosing the best move and updating the root
 	/// @param[in] turnIdx the turn index
 	void searchEnd(const int turnIdx);
@@ -688,6 +710,8 @@ MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
 //*************************************************************************************************************
 
 void MonteCarloTreeSearch::solve(const int turnIdx) {
+	searchBegin(turnIdx);
+
 #ifdef REDIRECT_INPUT
 	int iteration = 0;
 	while (iteration++ < MONTE_CARLO_ITERATIONS) {
@@ -811,6 +835,13 @@ double MonteCarloTreeSearch::uct(const double nodeWinScore, const int totalVisit
 	}
 
 	return uctValue;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
+	searchTree.getNode(turnRootNodeIdx).getState().setBoard(initialBoard);
 }
 
 //*************************************************************************************************************
