@@ -105,27 +105,22 @@ const Coord INVALID_COORD = -1;
 class Coords {
 public:
 	Coords();
-	Coords(Coord xCoord, Coord yCoord);
+	Coords(Coord rowCoord, Coord colCoord);
 
-	Coord getXCoord() const {
-		return xCoord;
-	}
+	Coord getRowCoord() const { return rowCoord; }
+	Coord getColCoord() const { return colCoord; }
 
-	Coord getYCoord() const {
-		return yCoord;
-	}
+	void setRowCoord(Coord rowCoord) { this->rowCoord = rowCoord; }
+	void setColCoord(Coord colCoord) { this->colCoord = colCoord; }
 
-	void setXCoord(Coord xCoord) { this->xCoord = xCoord; }
-	void setYCoord(Coord yCoord) { this->yCoord = yCoord; }
-
-	Coords& operator=(const Coords& other);
-	bool operator==(const Coords& other);
-	Coords operator+(const Coords& other);
-	Coords& operator+=(const Coords& other);
-	Coords operator-(const Coords& other);
-	Coords& operator-=(const Coords& other);
-	Coords operator*(const Coords& other);
-	Coords& operator*=(const Coords& other);
+	Coords& operator=(const Coords& rhs);
+	bool operator==(const Coords& rhs);
+	Coords operator+(const Coords& rhs);
+	Coords& operator+=(const Coords& rhs);
+	Coords operator-(const Coords& rhs);
+	Coords& operator-=(const Coords& rhs);
+	Coords operator*(const Coords& rhs);
+	Coords& operator*=(const Coords& rhs);
 	//Coords operator*(Coord numerical);
 	//Coords& operator*=(Coord numerical);
 
@@ -137,16 +132,16 @@ public:
 	friend Coord distance(const Coords& point0, const Coords& point1);
 	friend ostream& operator<<(ostream& stream, const Coords& coords);
 private:
-	Coord xCoord;
-	Coord yCoord;
+	Coord rowCoord;
+	Coord colCoord;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 Coords::Coords() :
-	xCoord(INVALID_COORD),
-	yCoord(INVALID_COORD)
+	rowCoord(INVALID_COORD),
+	colCoord(INVALID_COORD)
 {
 }
 
@@ -154,22 +149,20 @@ Coords::Coords() :
 //*************************************************************************************************************
 
 Coords::Coords(
-	Coord xCoord,
-	Coord yCoord
+	Coord rowCoord,
+	Coord colCoord
 ) :
-	xCoord(xCoord),
-	yCoord(yCoord)
+	rowCoord(rowCoord),
+	colCoord(colCoord)
 {
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Coords& Coords::operator=(const Coords& other) {
-	if (this != &other) {
-		xCoord = other.xCoord;
-		yCoord = other.yCoord;
-	}
+Coords& Coords::operator=(const Coords& rhs) {
+	rowCoord = rhs.rowCoord;
+	colCoord = rhs.colCoord;
 
 	return *this;
 }
@@ -177,23 +170,23 @@ Coords& Coords::operator=(const Coords& other) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-bool Coords::operator==(const Coords& other) {
-	return (xCoord == other.xCoord) && (yCoord == other.yCoord);
+bool Coords::operator==(const Coords& rhs) {
+	return (rowCoord == rhs.rowCoord) && (colCoord == rhs.colCoord);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Coords Coords::operator+(const Coords& other) {
-	return Coords(xCoord + other.xCoord, yCoord + other.yCoord);
+Coords Coords::operator+(const Coords& rhs) {
+	return Coords(rowCoord + rhs.rowCoord, colCoord + rhs.colCoord);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Coords& Coords::operator+=(const Coords& other) {
-	xCoord += other.xCoord;
-	yCoord += other.yCoord;
+Coords& Coords::operator+=(const Coords& rhs) {
+	rowCoord += rhs.rowCoord;
+	colCoord += rhs.colCoord;
 
 	return *this;
 }
@@ -201,16 +194,16 @@ Coords& Coords::operator+=(const Coords& other) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Coords Coords::operator-(const Coords& other) {
-	return Coords(xCoord - other.xCoord, yCoord - other.yCoord);
+Coords Coords::operator-(const Coords& rhs) {
+	return Coords(rowCoord - rhs.rowCoord, colCoord - rhs.colCoord);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Coords& Coords::operator-=(const Coords& other) {
-	xCoord -= other.xCoord;
-	yCoord -= other.yCoord;
+Coords& Coords::operator-=(const Coords& rhs) {
+	rowCoord -= rhs.rowCoord;
+	colCoord -= rhs.colCoord;
 
 	return *this;
 }
@@ -218,16 +211,16 @@ Coords& Coords::operator-=(const Coords& other) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Coords Coords::operator*(const Coords& other) {
-	return Coords(xCoord * other.xCoord, yCoord * other.yCoord);
+Coords Coords::operator*(const Coords& rhs) {
+	return Coords(rowCoord * rhs.rowCoord, colCoord * rhs.colCoord);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Coords& Coords::operator*=(const Coords& other) {
-	xCoord *= other.xCoord;
-	yCoord *= other.yCoord;
+Coords& Coords::operator*=(const Coords& rhs) {
+	rowCoord *= rhs.rowCoord;
+	colCoord *= rhs.colCoord;
 
 	return *this;
 }
@@ -236,15 +229,15 @@ Coords& Coords::operator*=(const Coords& other) {
 //*************************************************************************************************************
 
 bool Coords::isValid() const {
-	return INVALID_COORD != xCoord && INVALID_COORD != yCoord;
+	return INVALID_COORD != rowCoord && INVALID_COORD != colCoord;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 Coord Coords::distance(const Coords& coords) const {
-	Coord kat0 = coords.xCoord - xCoord;
-	Coord kat1 = coords.yCoord - yCoord;
+	Coord kat0 = coords.rowCoord - rowCoord;
+	Coord kat1 = coords.colCoord - colCoord;
 
 	Coord hip = (Coord)sqrt((kat0 * kat0) + (kat1 * kat1));
 	return hip;
@@ -254,16 +247,16 @@ Coord Coords::distance(const Coords& coords) const {
 //*************************************************************************************************************
 
 void Coords::roundCoords() {
-	xCoord = static_cast<Coord>(round(xCoord));
-	yCoord = static_cast<Coord>(round(yCoord));
+	rowCoord = static_cast<Coord>(round(rowCoord));
+	colCoord = static_cast<Coord>(round(colCoord));
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 Coord distance(const Coords& point0, const Coords& point1) {
-	Coord lineXLenght = static_cast<Coord>(abs(point0.xCoord - point1.xCoord));
-	Coord lineYLenght = static_cast<Coord>(abs(point0.yCoord - point1.yCoord));
+	Coord lineXLenght = static_cast<Coord>(abs(point0.rowCoord - point1.rowCoord));
+	Coord lineYLenght = static_cast<Coord>(abs(point0.colCoord - point1.colCoord));
 
 	Coord distance = static_cast<Coord>(sqrt((lineXLenght * lineXLenght) + (lineYLenght * lineYLenght)));
 
@@ -274,7 +267,7 @@ Coord distance(const Coords& point0, const Coords& point1) {
 //*************************************************************************************************************
 
 ostream& operator<<(ostream& stream, const Coords& coords) {
-	stream << coords.yCoord << SPACE << coords.xCoord;
+	stream << coords.colCoord << SPACE << coords.rowCoord;
 	return stream;
 }
 
@@ -317,7 +310,10 @@ class Board {
 public:
 	Board();
 
+	void setMove(Coords move) { this->move = move; }
+
 	BoardStatus getStatus() const { return status; }
+	Coords getMove() { return move; }
 
 	/// Initialize the board empty squares
 	void init();
@@ -346,7 +342,7 @@ public:
 private:
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
 	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
-
+	Coords move; ///< Move which led to this board
 	BoardStatus status; ///< Status of the board
 };
 
@@ -380,12 +376,12 @@ void Board::init() {
 int Board::getPlayerIdx(const Coords pos) const {
 	int playerIdx = INVALID_IDX;
 
-	const int bigBoardRowIdx = pos.getYCoord() / TRIPLE;
-	const int bigBoardColIdx = pos.getXCoord() / TRIPLE;
+	const int bigBoardRowIdx = pos.getRowCoord() / TRIPLE;
+	const int bigBoardColIdx = pos.getColCoord() / TRIPLE;
 	const int miniBoardIdx = (bigBoardRowIdx * TRIPLE) + bigBoardColIdx;
 
-	const int miniBoardRowIdx = pos.getYCoord() % TRIPLE;
-	const int miniBoardColIdx = pos.getXCoord() % TRIPLE;
+	const int miniBoardRowIdx = pos.getRowCoord() % TRIPLE;
+	const int miniBoardColIdx = pos.getColCoord() % TRIPLE;
 	const short miniBoardInnerIdx = (miniBoardRowIdx * TRIPLE) + miniBoardColIdx;
 
 	const short miniBoardXes = board[0][miniBoardIdx];
@@ -405,12 +401,12 @@ int Board::getPlayerIdx(const Coords pos) const {
 //*************************************************************************************************************
 
 void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
-	const int bigBoardRowIdx = pos.getYCoord() / TRIPLE;
-	const int bigBoardColIdx = pos.getXCoord() / TRIPLE;
+	const int bigBoardRowIdx = pos.getRowCoord() / TRIPLE;
+	const int bigBoardColIdx = pos.getColCoord() / TRIPLE;
 	const int miniBoardIdx = (bigBoardRowIdx * TRIPLE) + bigBoardColIdx;
 
-	const int miniBoardRowIdx = pos.getYCoord() % TRIPLE;
-	const int miniBoardColIdx = pos.getXCoord() % TRIPLE;
+	const int miniBoardRowIdx = pos.getRowCoord() % TRIPLE;
+	const int miniBoardColIdx = pos.getColCoord() % TRIPLE;
 	const short miniBoardInnerIdx = (miniBoardRowIdx * TRIPLE) + miniBoardColIdx;
 
 	board[playerIdx][miniBoardIdx] |= 1 << miniBoardInnerIdx;
@@ -420,6 +416,7 @@ void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
 //*************************************************************************************************************
 
 void Board::playMove(const Coords move, const int player) {
+	setMove(move);
 	setPlayerIdx(move, player);
 }
 
@@ -441,6 +438,7 @@ int Board::simulateRandomGame() {
 //*************************************************************************************************************
 
 Board& Board::operator=(const Board& rhs) {
+	setMove(rhs.move);
 	this->status = rhs.status;
 
 	for (int sqTypeIdx = 0; sqTypeIdx < SQUARE_TYPES; ++sqTypeIdx) {
@@ -493,21 +491,18 @@ public:
 	State(const Board& board, const int player, const int visits, const double winScore);
 
 	void setBoard(const Board& board) { this->board = board; }
-	void setMove(Coords move) { this->move = move; }
 	void setPlayer(const int player) { this->player = player; }
 	void setVisits(const int visits) { this->visits = visits; }
 	void setWinScore(const double winScore) { this->winScore = winScore; }
 
 	const Board& getBoard() const { return board; }
 	Board& getBoard() { return board; }
-	Coords getMove() { return move; }
 	int getPlayer() const { return player; }
 	int getVisits() const { return visits; }
 	double getWinScore() const { return winScore; }
 
 private:
 	Board board; ///< The game board state, which this node represents
-	Coords move; ///< Move which led to this state
 	int player; ///< The player index for which is this state
 	int visits; ///< How many times this state is visited by the MCTS alogrithm
 	double winScore; ///< Score of the state
@@ -549,7 +544,6 @@ private:
 	State state; ///< Game state information (wins/visits) including the board
 	vector<int> children; ///< List of children nodes' ids in the list of Nodes for the trees
 	int parentIdx; ///< The index of the parent node
-	//int idx; ///< Unique id for the Node, may be removed after the game is solved
 };
 
 //*************************************************************************************************************
@@ -867,7 +861,7 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 		}
 
 		if (INVALID_IDX != bestChildIdx) {
-			bestMove = searchTree.getNode(bestChildIdx).getState().getMove();
+			bestMove = searchTree.getNode(bestChildIdx).getState().getBoard().getMove();
 			turnRootNodeIdx = bestChildIdx;
 		}
 	}
@@ -992,8 +986,8 @@ void Game::getTurnInput() {
 	cerr << opponentRow << SPACE << opponentCol << endl;
 #endif // OUTPUT_GAME_DATA
 
-	opponentMove.setXCoord(opponentCol);
-	opponentMove.setYCoord(opponentRow);
+	opponentMove.setRowCoord(opponentRow);
+	opponentMove.setColCoord(opponentCol);
 	monteCarloTreeSearch.setOpponentMove(opponentMove);
 
 	int validActionCount;
