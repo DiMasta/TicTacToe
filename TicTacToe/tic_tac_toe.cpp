@@ -50,6 +50,7 @@ static constexpr int BOARD_DIM = 9;
 static constexpr int PLAYER_TOGGLE = 3;
 static constexpr int MY_PLAYER_IDX = 0;
 static constexpr int OPPONENT_PLAYER_IDX = 1;
+static constexpr int MONTE_CARLO_ITERATIONS = 2;
 
 static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
@@ -449,7 +450,7 @@ ostream& operator<<(std::ostream& stream, const Board& board) {
 				stream << SPACE << SPACE << SPACE;
 			}
 
-			const int playerIdx = board.getPlayerIdx({ rowIdx, colIdx });
+			const int playerIdx = board.getPlayerIdx({ colIdx, rowIdx });
 
 			switch (playerIdx) {
 			case MY_PLAYER_IDX: { stream << MY_PLAYER_CHAR; break; }
@@ -626,7 +627,8 @@ public:
 	long long getTimeLimit() const { return timeLimit; }
 
 	/// Find the best move
-	void solve();
+	/// @param[in] turnIdx the turn index
+	void solve(const int turnIdx);
 
 	/// Set the starting player for the game
 	void setRootPlayer(const int playerIdx);
@@ -658,7 +660,8 @@ private:
 	double uct(const double nodeWinScore, const int totalVisits, const int nodeVisit) const;
 
 	/// Conclude the search choosing the best move and updating the root
-	void searchEnd();
+	/// @param[in] turnIdx the turn index
+	void searchEnd(const int turnIdx);
 
 	Tree searchTree; ///< The actual search tree for the algotrithm
 	Coords opponentMove; ///< The last move for the opponent
@@ -684,32 +687,30 @@ MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void MonteCarloTreeSearch::solve() {
-	if (!opponentMove.isValid()) {
-		// The board is empty, could play anywhere, play in the middle
-		bestMove.setXCoord(BOARD_DIM / 2);
-		bestMove.setYCoord(BOARD_DIM / 2);
-	}
-	else {
-		chrono::steady_clock::time_point begin = chrono::steady_clock::now();
-		while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
-			const int selectedNodeIdx = selectPromisingNode();
-			const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
-			if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
-				expansion(selectedNodeIdx);
-			}
-
-			int nodeToExploreIdx = selectedNodeIdx;
-			if (selectedNode.getChildrenCount() > 0) {
-				nodeToExploreIdx = rand() % selectedNode.getChildrenCount();
-			}
-
-			int victoriousPlayer = simulation(nodeToExploreIdx);
-			backPropagation(nodeToExploreIdx, victoriousPlayer);
+void MonteCarloTreeSearch::solve(const int turnIdx) {
+#ifdef REDIRECT_INPUT
+	int iteration = 0;
+	while (iteration++ < MONTE_CARLO_ITERATIONS) {
+#else
+	chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+	while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
+#endif // REDIRECT_INPUT
+		const int selectedNodeIdx = selectPromisingNode();
+		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
+		if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
+			expansion(selectedNodeIdx);
 		}
 
-		searchEnd();
+		int nodeToExploreIdx = selectedNodeIdx;
+		if (selectedNode.getChildrenCount() > 0) {
+			nodeToExploreIdx = rand() % selectedNode.getChildrenCount();
+		}
+
+		int victoriousPlayer = simulation(nodeToExploreIdx);
+		backPropagation(nodeToExploreIdx, victoriousPlayer);
 	}
+
+	searchEnd(turnIdx);
 }
 
 //*************************************************************************************************************
@@ -815,23 +816,29 @@ double MonteCarloTreeSearch::uct(const double nodeWinScore, const int totalVisit
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void MonteCarloTreeSearch::searchEnd() {
-	const vector<int>& rootChildren = searchTree.getNode(turnRootNodeIdx).getChildren();
-
-	int bestChildIdx = INVALID_IDX;
-	double maxScore = 0.0;
-	for (int childIdx = 0; childIdx < static_cast<int>(rootChildren.size()); ++childIdx) {
-		const int childNodeIdx = rootChildren[childIdx];
-		const double childScore = searchTree.getNode(childNodeIdx).getState().getWinScore();
-		if (childScore > maxScore) {
-			maxScore = childScore;
-			bestChildIdx = childNodeIdx;
-		}
+void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
+	if (0 == turnIdx && !opponentMove.isValid()) {
+		// If I'm fisrt the tree is build for a play in the middle
+		bestMove = { BOARD_DIM / 2, BOARD_DIM / 2 };
 	}
+	else {
+		const vector<int>& rootChildren = searchTree.getNode(turnRootNodeIdx).getChildren();
 
-	if (INVALID_IDX != bestChildIdx) {
-		bestMove = searchTree.getNode(bestChildIdx).getState().getMove();
-		turnRootNodeIdx = bestChildIdx;
+		int bestChildIdx = INVALID_IDX;
+		double maxScore = 0.0;
+		for (int childIdx = 0; childIdx < static_cast<int>(rootChildren.size()); ++childIdx) {
+			const int childNodeIdx = rootChildren[childIdx];
+			const double childScore = searchTree.getNode(childNodeIdx).getState().getWinScore();
+			if (childScore > maxScore) {
+				maxScore = childScore;
+				bestChildIdx = childNodeIdx;
+			}
+		}
+
+		if (INVALID_IDX != bestChildIdx) {
+			bestMove = searchTree.getNode(bestChildIdx).getState().getMove();
+			turnRootNodeIdx = bestChildIdx;
+		}
 	}
 }
 
@@ -988,6 +995,7 @@ void Game::turnBegin() {
 	}
 	else if (0 == turnsCount) {
 		monteCarloTreeSearch.setRootPlayer(MY_PLAYER_IDX);
+		board.playMove({ BOARD_DIM / 2, BOARD_DIM / 2 }, MY_PLAYER_IDX); // Play in the middle if I'm first
 	}
 	else {
 		board.playMove(opponentMove, OPPONENT_PLAYER_IDX);
@@ -1000,7 +1008,7 @@ void Game::turnBegin() {
 		monteCarloTreeSearch.setTimeLimit(TURN_MS - BIAS_MS);
 	}
 
-	monteCarloTreeSearch.solve();
+	monteCarloTreeSearch.solve(turnsCount);
 }
 
 //*************************************************************************************************************
@@ -1009,7 +1017,10 @@ void Game::turnBegin() {
 void Game::makeTurn() {
 	const Coords bestMove = monteCarloTreeSearch.getBestMove();
 	cout << bestMove << endl;
-	board.playMove(bestMove, MY_PLAYER_IDX);
+
+	if (opponentMove.isValid()) {
+		board.playMove(bestMove, MY_PLAYER_IDX);
+	}
 }
 
 //*************************************************************************************************************
