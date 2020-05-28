@@ -105,6 +105,7 @@ const Coord INVALID_COORD = -1;
 class Coords {
 public:
 	Coords();
+	Coords(const Coords& rhs);
 	Coords(Coord rowCoord, Coord colCoord);
 
 	Coord getRowCoord() const { return rowCoord; }
@@ -142,6 +143,15 @@ private:
 Coords::Coords() :
 	rowCoord(INVALID_COORD),
 	colCoord(INVALID_COORD)
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Coords::Coords(const Coords& rhs) :
+	rowCoord(rhs.rowCoord),
+	colCoord(rhs.colCoord)
 {
 }
 
@@ -318,6 +328,22 @@ public:
 	/// Initialize the board empty squares
 	void init();
 
+	/// Determine the mini board index by the given global position
+	/// @param[in] pos the position on the big board
+	/// @return the index of the mini board in the big board
+	int getMiniBoardIdx(const Coords pos) const;
+
+	/// Determine the mini board inner index by the given global position
+	/// @param[in] pos the position on the big board
+	/// @return the inner index of the mini board in the big board
+	short getMiniBoardInnerIdx(const Coords pos) const;
+
+	/// Determine the gloabal board postion by given the mini board index and inner mini board index
+	/// @param[in] miniBoardIdx the index ofthe miniboard
+	/// @param[in] miniBoardInnerIdx the index of the element in the mini board
+	/// @return the position in the global big board
+	Coords getBigBoardPosition(const int miniBoardIdx, const int miniBoardInnerIdx) const;
+
 	/// Return the player index, played in the given position
 	int getPlayerIdx(const Coords pos) const;
 
@@ -340,6 +366,12 @@ public:
 	friend ostream& operator<<(std::ostream& stream, const Board& board);
 
 private:
+	/// Return possible moves for the given mini board
+	vector<Coords> getAllPossibleMovesForMiniBoard(const int miniBoardIdx) const;
+
+	/// Return possible moves in all mini boards
+	vector<Coords> getAllPossibleMovesForAllMiniBoards() const;
+
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
 	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
 	Coords move; ///< Move which led to this board
@@ -373,16 +405,49 @@ void Board::init() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-int Board::getPlayerIdx(const Coords pos) const {
-	int playerIdx = INVALID_IDX;
-
+int Board::getMiniBoardIdx(const Coords pos) const {
 	const int bigBoardRowIdx = pos.getRowCoord() / TRIPLE;
 	const int bigBoardColIdx = pos.getColCoord() / TRIPLE;
 	const int miniBoardIdx = (bigBoardRowIdx * TRIPLE) + bigBoardColIdx;
 
+	return miniBoardIdx;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+short Board::getMiniBoardInnerIdx(const Coords pos) const {
 	const int miniBoardRowIdx = pos.getRowCoord() % TRIPLE;
 	const int miniBoardColIdx = pos.getColCoord() % TRIPLE;
 	const short miniBoardInnerIdx = (miniBoardRowIdx * TRIPLE) + miniBoardColIdx;
+
+	return miniBoardInnerIdx;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Coords Board::getBigBoardPosition(const int miniBoardIdx, const int miniBoardInnerIdx) const {
+	const int miniBoardRowIdx = miniBoardIdx / TRIPLE;
+	const int miniBoardColIdx = miniBoardIdx % TRIPLE;
+
+	const int miniBoardInnerRowIdx = miniBoardInnerIdx / TRIPLE;
+	const int miniBoardInnerColIdx = miniBoardInnerIdx % TRIPLE;
+
+	const int gloabalRowIdx = miniBoardInnerRowIdx + (miniBoardRowIdx * TRIPLE);
+	const int gloabalColIdx = miniBoardInnerColIdx + (miniBoardColIdx * TRIPLE);
+
+	return { gloabalRowIdx, gloabalColIdx };
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Board::getPlayerIdx(const Coords pos) const {
+	int playerIdx = INVALID_IDX;
+
+	const int miniBoardIdx = getMiniBoardIdx(pos);
+	const short miniBoardInnerIdx = getMiniBoardInnerIdx(pos);
 
 	const short miniBoardXes = board[0][miniBoardIdx];
 	const short miniBoardOs = board[1][miniBoardIdx];
@@ -401,13 +466,8 @@ int Board::getPlayerIdx(const Coords pos) const {
 //*************************************************************************************************************
 
 void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
-	const int bigBoardRowIdx = pos.getRowCoord() / TRIPLE;
-	const int bigBoardColIdx = pos.getColCoord() / TRIPLE;
-	const int miniBoardIdx = (bigBoardRowIdx * TRIPLE) + bigBoardColIdx;
-
-	const int miniBoardRowIdx = pos.getRowCoord() % TRIPLE;
-	const int miniBoardColIdx = pos.getColCoord() % TRIPLE;
-	const short miniBoardInnerIdx = (miniBoardRowIdx * TRIPLE) + miniBoardColIdx;
+	const int miniBoardIdx = getMiniBoardIdx(pos);
+	const short miniBoardInnerIdx = getMiniBoardInnerIdx(pos);
 
 	board[playerIdx][miniBoardIdx] |= 1 << miniBoardInnerIdx;
 }
@@ -424,7 +484,14 @@ void Board::playMove(const Coords move, const int player) {
 //*************************************************************************************************************
 
 vector<Coords> Board::getAllPossibleMoves() const {
-	return vector<Coords>();
+	const int activeMiniBoardIdx = getMiniBoardIdx(move);
+	vector<Coords> miniBoardEmptyPositions = getAllPossibleMovesForMiniBoard(activeMiniBoardIdx);
+
+	if (0 == miniBoardEmptyPositions.size()) {
+		miniBoardEmptyPositions = getAllPossibleMovesForAllMiniBoards();
+	}
+
+	return miniBoardEmptyPositions;
 }
 
 //*************************************************************************************************************
@@ -450,6 +517,41 @@ Board& Board::operator=(const Board& rhs) {
 	}
 
 	return *this;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+vector<Coords> Board::getAllPossibleMovesForMiniBoard(const int miniBoardIdx) const {
+	vector<Coords> moves;
+	moves.reserve(BOARD_DIM);
+
+	const short opponentBoard = board[OPPONENT_PLAYER_IDX][miniBoardIdx];
+	const short myBoard = board[MY_PLAYER_IDX][miniBoardIdx];
+
+	for (int sqIdx = 0; sqIdx < BOARD_DIM; ++sqIdx) {
+		const short squareMask = 1 << sqIdx;
+		if (!(opponentBoard & squareMask) && !(myBoard & squareMask)) {
+			Coords squarePosition = getBigBoardPosition(miniBoardIdx, sqIdx);
+			moves.push_back(squarePosition);
+		}
+	}
+
+	return moves;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+vector<Coords> Board::getAllPossibleMovesForAllMiniBoards() const {
+	vector<Coords> allMoves;
+	
+	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+		vector<Coords> miniBoardMoves = getAllPossibleMovesForMiniBoard(miniBoardIdx);
+		allMoves.insert(allMoves.end(), miniBoardMoves.begin(), miniBoardMoves.end());
+	}
+
+	return allMoves;
 }
 
 //*************************************************************************************************************
@@ -1012,8 +1114,6 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
-	cerr << board << endl << "*************************************" << endl;;
-
 	if (0 == turnsCount && opponentMove.isValid()) {
 		monteCarloTreeSearch.setRootPlayer(OPPONENT_PLAYER_IDX);
 		board.playMove(opponentMove, OPPONENT_PLAYER_IDX);
@@ -1025,6 +1125,8 @@ void Game::turnBegin() {
 	else {
 		board.playMove(opponentMove, OPPONENT_PLAYER_IDX);
 	}
+
+	cerr << board << endl << "*************************************" << endl;
 
 	if (0 == turnsCount) {
 		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
