@@ -88,7 +88,7 @@ enum class BoardStatus {
 	INVALID = -1,
 	IN_PROGRESS,
 	DRAW,
-	OPPENT_WON,
+	OPPONENT_WON,
 	I_WON,
 };
 
@@ -419,7 +419,8 @@ void Board::init() {
 //*************************************************************************************************************
 
 void Board::copy(const Board& rhs) {
-	setMove(rhs.move);
+	this->player = rhs.player;
+	this->move = rhs.move;
 	this->status = rhs.status;
 
 	for (int sqTypeIdx = 0; sqTypeIdx < SQUARE_TYPES; ++sqTypeIdx) {
@@ -514,7 +515,7 @@ void Board::playMove(const Coords move) {
 //*************************************************************************************************************
 
 vector<Coords> Board::getAllPossibleMoves() const {
-	const int activeMiniBoardIdx = getMiniBoardIdx(move);
+	const int activeMiniBoardIdx = getMiniBoardInnerIdx(move); // Current moves detemine the next mini board
 	vector<Coords> miniBoardEmptyPositions = getAllPossibleMovesForMiniBoard(activeMiniBoardIdx);
 
 	if (0 == miniBoardEmptyPositions.size()) {
@@ -528,11 +529,15 @@ vector<Coords> Board::getAllPossibleMoves() const {
 //*************************************************************************************************************
 
 int Board::simulateRandomGame() {
+	cerr << *this << endl << "*************************************" << endl;
+
 	while (BoardStatus::IN_PROGRESS == status) {
 		vector<Coords> allMoves = getAllPossibleMoves();
 
 		Coords randomMove = allMoves[rand() % allMoves.size()];
-		//playMove(randomMove)
+		playMove(randomMove);
+
+		cerr << *this << endl << "*************************************" << endl;
 	}
 
 	return 0;
@@ -1150,8 +1155,6 @@ void Game::turnBegin() {
 	else {
 		board.playMove(opponentMove);
 	}
-
-	cerr << board << endl << "*************************************" << endl;
 
 	if (0 == turnsCount) {
 		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
