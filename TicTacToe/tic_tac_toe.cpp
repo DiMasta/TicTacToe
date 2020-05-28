@@ -21,7 +21,7 @@
 
 using namespace std;
 
-#define REDIRECT_INPUT
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -328,7 +328,7 @@ public:
 
 	BoardStatus getStatus() const { return status; }
 	int getPlayer() const { return player; }
-	Coords getMove() { return move; }
+	Coords getMove() const { return move; }
 
 	/// Initialize the board empty squares
 	void init();
@@ -564,7 +564,7 @@ vector<Coords> Board::getAllPossibleMoves() const {
 //*************************************************************************************************************
 
 int Board::simulateRandomGame() {
-	cerr << *this << endl << "*************************************" << endl;
+	//cerr << *this << endl << "*************************************" << endl;
 
 	while (BoardStatus::IN_PROGRESS == status) {
 		vector<Coords> allMoves = getAllPossibleMoves();
@@ -572,7 +572,7 @@ int Board::simulateRandomGame() {
 		Coords randomMove = allMoves[rand() % allMoves.size()];
 		playMove(randomMove);
 
-		cerr << *this << endl << "*************************************" << endl;
+		//cerr << *this << endl << "*************************************" << endl;
 	}
 
 	int victoriousPlayer = INVALID_IDX;
@@ -922,13 +922,13 @@ MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
 void MonteCarloTreeSearch::solve(const int turnIdx) {
 	searchBegin(turnIdx);
 
-#ifdef REDIRECT_INPUT
+//#ifdef REDIRECT_INPUT
 	int iteration = 0;
 	while (iteration++ < MONTE_CARLO_ITERATIONS) {
-#else
-	chrono::steady_clock::time_point begin = chrono::steady_clock::now();
-	while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
-#endif // REDIRECT_INPUT
+//#else
+//	chrono::steady_clock::time_point begin = chrono::steady_clock::now();
+//	while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
+//#endif // REDIRECT_INPUT
 		const int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 		if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
@@ -937,7 +937,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 
 		int nodeToExploreIdx = selectedNodeIdx;
 		if (selectedNode.getChildrenCount() > 0) {
-			nodeToExploreIdx = rand() % selectedNode.getChildrenCount();
+			nodeToExploreIdx = selectedNode.getChildren()[rand() % selectedNode.getChildrenCount()];
 		}
 
 		int victoriousPlayer = simulation(nodeToExploreIdx);
@@ -1055,7 +1055,21 @@ double MonteCarloTreeSearch::uct(const double nodeWinScore, const int totalVisit
 //*************************************************************************************************************
 
 void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
-	searchTree.getNode(turnRootNodeIdx).getState().setBoard(initialBoard);
+	if (0 == turnIdx) {
+		searchTree.getNode(turnRootNodeIdx).getState().setBoard(initialBoard);
+	}
+	else {
+		const Node& currentRoot = searchTree.getNode(turnRootNodeIdx);
+		const vector<int> currentRootChildren = currentRoot.getChildren();
+		for (const int childIdx : currentRootChildren) {
+			const Node& child = searchTree.getNode(childIdx);
+			
+			if (opponentMove == child.getState().getBoard().getMove()) {
+				turnRootNodeIdx = childIdx;
+				break;
+			}
+		}
+	}
 }
 
 //*************************************************************************************************************
@@ -1068,7 +1082,6 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 	}
 	else {
 		const vector<int>& rootChildren = searchTree.getNode(turnRootNodeIdx).getChildren();
-
 		int bestChildIdx = INVALID_IDX;
 		double maxScore = 0.0;
 		for (int childIdx = 0; childIdx < static_cast<int>(rootChildren.size()); ++childIdx) {
