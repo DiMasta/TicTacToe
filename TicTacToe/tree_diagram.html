@@ -6,14 +6,17 @@
 
 	<body>
 		<script>
+			var canvasWidth = 4000;
+			var canvasheight = 2250;
+		
 			var canvas = d3.select("body").append("svg")
-				.attr("width", 500)
-				.attr("height", 500)
+				.attr("width", canvasWidth)
+				.attr("height", canvasheight)
 				.append("g")
 					.attr("transform", "translate(50, 50)");
 
 			var tree = d3.layout.tree()
-				.size([400, 400]);
+				.size([canvasWidth - 50, canvasheight - 50]);
 
 			d3.json("tree_data.json", function (data) {
 				var nodes = tree.nodes(data);
