@@ -18,5 +18,13 @@
     <ClCompile Include="tic_tac_toe.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="tree_manager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="tree_manager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

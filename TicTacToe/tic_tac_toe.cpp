@@ -94,6 +94,12 @@ enum class BoardStatus {
 	I_WON,
 };
 
+static void printTabs(const int tabsCount, string& str) {
+	for (int tabIdx = 0; tabIdx < tabsCount; ++tabIdx) {
+		str += TAB;
+	}
+}
+
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -851,10 +857,19 @@ public:
 	/// Add the given node to the tree and return its index
 	int addNode(const Node& node);
 
+	/// Print the tree to file for easy debug
+	void print() const;
+
 	/// Debug the tree online
 	void debug() const;
 
 private:
+	/// Use DFS to print the tree to file
+	/// @param[in] depth the current depth of the tree
+	/// @param[in] nodeToExplore the current Node to explore
+	/// @param[out] treeString the string which is updated at each depth
+	void dfsPrint(const int depth, const int nodeToExplore, string& treeString) const;
+
 	vector<Node> nodes; ///< All nodes used in the tree
 };
 
@@ -887,11 +902,54 @@ int Tree::addNode(const Node& node) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Tree::print() const {
+	string treeString = EMPTY_STRING;
+	dfsPrint(0, 0, treeString);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Tree::debug() const {
 	for (size_t nodeIdx = 0; nodeIdx < nodes.size(); ++nodeIdx) {
 		cerr << "Node[" << nodeIdx << "]: " << endl;
 		nodes[nodeIdx].debug();
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Tree::dfsPrint(const int depth, const int nodeToExploreIdx, string& treeString) const {
+	const Node& nodeToExplore = nodes[nodeToExploreIdx];
+
+	printTabs(depth, treeString);
+	treeString += "{\n";
+	printTabs(depth + 1, treeString);
+	treeString += R"("name": ")";
+	treeString += to_string(nodeToExploreIdx);
+	treeString += R"(")";
+
+	if (nodeToExplore.getChildrenCount() > 0) {
+		treeString += ",\n";
+		printTabs(depth + 1, treeString);
+		treeString += R"("children": [)";
+		treeString += "\n";
+		printTabs(depth + 1, treeString);
+
+		for (const int childIdx : nodeToExplore.getChildren()) {
+			dfsPrint(depth + 1, childIdx, treeString);
+		}
+
+		printTabs(depth + 1, treeString);
+		treeString += "]\n";
+	}
+	else {
+		treeString += "\n";
+	}
+
+	printTabs(depth, treeString);
+	treeString += "},\n"; // TODO: last child should be without comma
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -917,6 +975,9 @@ public:
 
 	/// Set the starting player for the game
 	void setRootPlayer(const int playerIdx);
+
+	/// Print the search tree to file for easy visual debug
+	void printSearchTree() const;
 
 	/// Debug the tree online
 	void debug() const;
@@ -1016,6 +1077,13 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 
 void MonteCarloTreeSearch::setRootPlayer(const int playerIdx) {
 	searchTree.setRootPlayer(playerIdx);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MonteCarloTreeSearch::printSearchTree() const {
+	searchTree.print();
 }
 
 //*************************************************************************************************************
@@ -1167,6 +1235,10 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 		bestMove = searchTree.getNode(bestChildIdx).getState().getBoard().getMove();
 		turnRootNodeIdx = bestChildIdx;
 	}
+
+#ifdef REDIRECT_INPUT
+	printSearchTree();
+#endif // REDIRECT_INPUT
 }
 
 //-------------------------------------------------------------------------------------------------------------

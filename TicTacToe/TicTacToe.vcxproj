@@ -115,6 +115,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="tic_tac_toe.cpp" />
+    <ClCompile Include="tree_manager.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="tree_manager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
