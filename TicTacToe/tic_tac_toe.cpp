@@ -23,7 +23,7 @@ using namespace std;
 
 //#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
-//#define TIME_MEASURERMENT
+#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
 
@@ -50,7 +50,7 @@ static constexpr int BOARD_DIM = 9;
 static constexpr int PLAYER_TOGGLE = 2;
 static constexpr int MY_PLAYER_IDX = 0;
 static constexpr int OPPONENT_PLAYER_IDX = 1;
-static constexpr int MONTE_CARLO_ITERATIONS = 2;
+static constexpr int MONTE_CARLO_ITERATIONS = 9;
 
 static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
@@ -1060,15 +1060,10 @@ MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
 void MonteCarloTreeSearch::solve(const int turnIdx) {
 	searchBegin(turnIdx);
 
-//#ifdef REDIRECT_INPUT
 	int iteration = 0;
 	while (iteration++ < MONTE_CARLO_ITERATIONS) {
-//#else
-//	chrono::steady_clock::time_point begin = chrono::steady_clock::now();
-//	while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
-//#endif // REDIRECT_INPUT
+		cerr << iteration << endl;
 		const int selectedNodeIdx = selectPromisingNode();
-		cerr << "selectedNodeIdx: " << selectedNodeIdx << endl;
 
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 		if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
@@ -1079,10 +1074,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		if (selectedNode.getChildrenCount() > 0) {
 			const int randomChildIdx = rand() % selectedNode.getChildrenCount();
 			nodeToExploreIdx = selectedNode.getChildren()[randomChildIdx];
-			cerr << "nodeToExploreIdx: " << nodeToExploreIdx << endl;
 		}
-
-		//searchTree.debug();
 
 		int victoriousPlayer = simulation(nodeToExploreIdx);
 		backPropagation(nodeToExploreIdx, victoriousPlayer);
@@ -1116,6 +1108,7 @@ void MonteCarloTreeSearch::debug() const {
 //*************************************************************************************************************
 
 int MonteCarloTreeSearch::selectPromisingNode() const {
+	cerr << "selectPromisingNode" << endl;
 	int currentNodeIdx = turnRootNodeIdx;
 
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
@@ -1144,12 +1137,16 @@ int MonteCarloTreeSearch::selectPromisingNode() const {
 //*************************************************************************************************************
 
 void MonteCarloTreeSearch::expansion(const int selectedNode) {
+	cerr << "expansion" << endl;
 	Node& parentNode = searchTree.getNode(selectedNode);
 	const State& parentState = parentNode.getState();
 	const Board& parentBoard = parentState.getBoard();
 	vector<Coords> allMoves = parentBoard.getAllPossibleMoves();
+	cerr << "allMoves.size(): " << allMoves.size() << endl;
+	cerr << "allMoves: ";
 
 	for (int moveIdx = 0; moveIdx < static_cast<int>(allMoves.size()); ++moveIdx) {
+		cerr << "{" << allMoves[moveIdx].getRowCoord() << ", " << allMoves[moveIdx].getColCoord() << "} ";
 		Board childBoard{ parentBoard };
 		childBoard.playMove(allMoves[moveIdx]);
 
@@ -1159,12 +1156,14 @@ void MonteCarloTreeSearch::expansion(const int selectedNode) {
 		const int childNodeIdx = searchTree.addNode(childNode);
 		parentNode.addChild(childNodeIdx);
 	}
+	cerr << endl;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
+	cerr << "simulation" << endl;
 	// Copy board, so no need to reset afterwards
 	Board boardToSimulate = searchTree.getNode(nodeToExploreIdx).getState().getBoard();
 
@@ -1175,6 +1174,7 @@ int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
 //*************************************************************************************************************
 
 void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int victoriousPlayer) {
+	cerr << "backPropagation" << endl;
 	int currentNodeIdx = nodeToExploreIdx;
 	while (INVALID_IDX != currentNodeIdx) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
@@ -1219,11 +1219,13 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 	else {
 		const Node& currentRoot = searchTree.getNode(turnRootNodeIdx);
 		const vector<int> currentRootChildren = currentRoot.getChildren();
-		cerr << "currentRootChildren: ";
+		cerr << "Root children count: " << currentRootChildren.size() << endl;
+		cerr << "Children: ";
 		for (const int childIdx : currentRootChildren) {
-			cerr << childIdx << "; ";
 			const Node& child = searchTree.getNode(childIdx);
-			
+			const Coords childMove = child.getState().getBoard().getMove();
+			cerr << "{" << childMove.getRowCoord() << ", " << childMove.getColCoord() << "}; ";
+
 			if (opponentMove == child.getState().getBoard().getMove()) {
 				turnRootNodeIdx = childIdx;
 				//break;
@@ -1231,14 +1233,14 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 		}
 		cerr << endl;
 	}
-
-	cerr << "turnRootNodeIdx: " << turnRootNodeIdx << endl;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
+	cerr << "searchEnd" << endl;
+
 	if (0 == turnIdx && !opponentMove.isValid()) {
 		// If I'm fisrt the tree is build for a play in the middle
 		bestMove = { BOARD_DIM / 2, BOARD_DIM / 2 };
@@ -1264,9 +1266,7 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 		}
 	}
 
-//#ifdef REDIRECT_INPUT
 	//printSearchTree();
-//#endif // REDIRECT_INPUT
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -1346,7 +1346,7 @@ void Game::gameLoop() {
 	while (!stopGame) {
 #ifdef TIME_MEASURERMENT
 		chrono::steady_clock::time_point begin = chrono::steady_clock::now();
-#endif // TIME_MEASURERM
+#endif // TIME_MEASURERMENT
 
 		getTurnInput();
 		turnBegin();
@@ -1356,7 +1356,7 @@ void Game::gameLoop() {
 #ifdef TIME_MEASURERMENT
 		chrono::steady_clock::time_point end = chrono::steady_clock::now();
 		cerr << "Turn[" << turnsCount - 1 << "] execution time: " << chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " [ms]" << std::endl;
-#endif // TIME_MEASURERM
+#endif // TIME_MEASURERMENT
 
 #ifdef DEBUG_ONE_TURN
 		break;
