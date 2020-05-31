@@ -21,7 +21,7 @@
 
 using namespace std;
 
-#define REDIRECT_INPUT
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -907,6 +907,7 @@ void Tree::print() const {
 	string treeString = EMPTY_STRING;
 	dfsPrint(0, 0, false, treeString);
 
+	cerr << treeString << endl;
 	int debug = 0;
 	++debug;
 }
@@ -937,6 +938,7 @@ void Tree::dfsPrint(const int depth, const int nodeToExploreIdx, const bool last
 	treeString += "; ";
 	treeString += to_string(nodeToExplore.getState().getBoard().getMove().getColCoord());
 	treeString += "]";
+	treeString += to_string(static_cast<int>(nodeToExplore.getState().getWinScore()));
 	treeString += R"(")";
 
 	const int childrenCount = nodeToExplore.getChildrenCount();
@@ -1066,6 +1068,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 //	while (chrono::duration_cast<std::chrono::milliseconds>(chrono::steady_clock::now() - begin).count() < timeLimit) {
 //#endif // REDIRECT_INPUT
 		const int selectedNodeIdx = selectPromisingNode();
+		cerr << "selectedNodeIdx: " << selectedNodeIdx << endl;
 
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 		if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
@@ -1076,6 +1079,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		if (selectedNode.getChildrenCount() > 0) {
 			const int randomChildIdx = rand() % selectedNode.getChildrenCount();
 			nodeToExploreIdx = selectedNode.getChildren()[randomChildIdx];
+			cerr << "nodeToExploreIdx: " << nodeToExploreIdx << endl;
 		}
 
 		//searchTree.debug();
@@ -1215,15 +1219,20 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 	else {
 		const Node& currentRoot = searchTree.getNode(turnRootNodeIdx);
 		const vector<int> currentRootChildren = currentRoot.getChildren();
+		cerr << "currentRootChildren: ";
 		for (const int childIdx : currentRootChildren) {
+			cerr << childIdx << "; ";
 			const Node& child = searchTree.getNode(childIdx);
 			
 			if (opponentMove == child.getState().getBoard().getMove()) {
 				turnRootNodeIdx = childIdx;
-				break;
+				//break;
 			}
 		}
+		cerr << endl;
 	}
+
+	cerr << "turnRootNodeIdx: " << turnRootNodeIdx << endl;
 }
 
 //*************************************************************************************************************
@@ -1249,11 +1258,15 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 
 		bestMove = searchTree.getNode(bestChildIdx).getState().getBoard().getMove();
 		turnRootNodeIdx = bestChildIdx;
+
+		if (0 == searchTree.getNode(turnRootNodeIdx).getChildrenCount()) {
+			expansion(turnRootNodeIdx);
+		}
 	}
 
-#ifdef REDIRECT_INPUT
-	printSearchTree();
-#endif // REDIRECT_INPUT
+//#ifdef REDIRECT_INPUT
+	//printSearchTree();
+//#endif // REDIRECT_INPUT
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -1492,4 +1505,4 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
-// seed = 929496576
+// seed=761658940
