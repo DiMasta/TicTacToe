@@ -867,8 +867,9 @@ private:
 	/// Use DFS to print the tree to file
 	/// @param[in] depth the current depth of the tree
 	/// @param[in] nodeToExplore the current Node to explore
+	/// @param[in] lastChild true if the last child must be printed
 	/// @param[out] treeString the string which is updated at each depth
-	void dfsPrint(const int depth, const int nodeToExplore, string& treeString) const;
+	void dfsPrint(const int depth, const int nodeToExplore, const bool lastChild, string& treeString) const;
 
 	vector<Node> nodes; ///< All nodes used in the tree
 };
@@ -904,7 +905,10 @@ int Tree::addNode(const Node& node) {
 
 void Tree::print() const {
 	string treeString = EMPTY_STRING;
-	dfsPrint(0, 0, treeString);
+	dfsPrint(0, 0, false, treeString);
+
+	int debug = 0;
+	++debug;
 }
 
 //*************************************************************************************************************
@@ -920,7 +924,7 @@ void Tree::debug() const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Tree::dfsPrint(const int depth, const int nodeToExploreIdx, string& treeString) const {
+void Tree::dfsPrint(const int depth, const int nodeToExploreIdx, const bool lastChild, string& treeString) const {
 	const Node& nodeToExplore = nodes[nodeToExploreIdx];
 
 	printTabs(depth, treeString);
@@ -928,17 +932,24 @@ void Tree::dfsPrint(const int depth, const int nodeToExploreIdx, string& treeStr
 	printTabs(depth + 1, treeString);
 	treeString += R"("name": ")";
 	treeString += to_string(nodeToExploreIdx);
+	treeString += "[";
+	treeString += to_string(nodeToExplore.getState().getBoard().getMove().getRowCoord());
+	treeString += "; ";
+	treeString += to_string(nodeToExplore.getState().getBoard().getMove().getColCoord());
+	treeString += "]";
 	treeString += R"(")";
 
-	if (nodeToExplore.getChildrenCount() > 0) {
+	const int childrenCount = nodeToExplore.getChildrenCount();
+	if (childrenCount > 0) {
 		treeString += ",\n";
 		printTabs(depth + 1, treeString);
 		treeString += R"("children": [)";
 		treeString += "\n";
 		printTabs(depth + 1, treeString);
 
-		for (const int childIdx : nodeToExplore.getChildren()) {
-			dfsPrint(depth + 1, childIdx, treeString);
+		const vector<int> children = nodeToExplore.getChildren();
+		for (int i = 0; i < childrenCount; ++i) {
+			dfsPrint(depth + 1, children[i], i == (childrenCount - 1), treeString);
 		}
 
 		printTabs(depth + 1, treeString);
@@ -949,7 +960,11 @@ void Tree::dfsPrint(const int depth, const int nodeToExploreIdx, string& treeStr
 	}
 
 	printTabs(depth, treeString);
-	treeString += "},\n"; // TODO: last child should be without comma
+	treeString += "}";
+	if (!lastChild && !(0 == depth)) {
+		treeString += ",";
+	}
+	treeString += "\n";
 }
 
 //-------------------------------------------------------------------------------------------------------------

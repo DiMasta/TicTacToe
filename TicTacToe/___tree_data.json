@@ -1,0 +1,50 @@
+{
+	"name": "Max",
+	"children": [
+		{
+			"name": "Sylvia",
+			"children": [
+				{"name": "Craig"},
+				{"name": "Robin"},
+				{
+					"name": "Anna",
+					"children": [
+						{"name": "A"},
+						{"name": "B"},
+						{"name": "C"},
+						{"name": "D"},
+						{"name": "P"},
+						{"name": "O"},
+						{"name": "I"},
+						{
+							"name": "U",
+							"children": [
+								{
+									"name": "UA"
+								}
+							]
+						},
+						{"name": "T"},
+						{"name": "R"},
+						{"name": "E"},
+						{"name": "W"},
+						{"name": "Q"},
+						{"name": "H"},
+						{"name": "Y"},
+						{"name": "X"},
+						{"name": "Z"}
+					]
+				}
+			]
+		},
+		{
+			"name": "David",
+			"children": [
+				{"name": "Jeff", "size": 3534},
+				{"name": "Buffy", "size": 5731},
+				{"name": "Vlad", "size": 4444},
+				{"name": "Di", "size": 5555}
+			]
+		}
+	]
+}
