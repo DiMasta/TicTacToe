@@ -23,7 +23,7 @@ using namespace std;
 
 //#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
-#define TIME_MEASURERMENT
+//#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
 //#define USE_UNIFORM_RANDOM
 
@@ -50,7 +50,7 @@ static constexpr int BOARD_DIM = 9;
 static constexpr int PLAYER_TOGGLE = 2;
 static constexpr int MY_PLAYER_IDX = 0;
 static constexpr int OPPONENT_PLAYER_IDX = 1;
-static constexpr int MONTE_CARLO_ITERATIONS = 9;
+static constexpr int MONTE_CARLO_ITERATIONS = 2;
 
 static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
@@ -63,7 +63,6 @@ static constexpr long long FIRST_TURN_MS = 1'000;
 static constexpr long long TURN_MS = 100;
 static constexpr long long BIAS_MS = 2;
 
-static constexpr double MAX_DOUBLE = numeric_limits<double>::max();
 static constexpr double WIN_VALUE = 10.0;
 
 static constexpr int X_SQUARE = 0;
@@ -364,9 +363,14 @@ public:
 	/// Set the given player index in the given position
 	void setPlayerIdx(const Coords pos, const int playerIdx);
 
+	/// Check if the given move could be performed
+	/// @param[in] move the coordinates on which the player plays
+	/// return true if the given move could be performed
+	bool validMove(const Coords move);
+
 	/// Appply the given move for the given player and chage the player
 	/// @param[in] move the coordinates on which the player plays
-	void playMove(const Coords move);
+	bool playMove(const Coords move);
 
 	/// Return list of all playable coordinates
 	vector<Coords> getAllPossibleMoves() const;
@@ -532,27 +536,61 @@ void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Board::playMove(const Coords move) {
-	setMove(move);
-	setPlayerIdx(move, player);
+bool Board::validMove(const Coords move) {
+	bool valid = true;
 
-	const int miniBoardIdx = getMiniBoardIdx(move);
-	const short miniBoard = board[player][miniBoardIdx];
-	if (checkForWin(miniBoard)) {
-		bigBoard[player] |= (1 << miniBoardIdx);
+	const short miniBoardIdx = static_cast<short>(getMiniBoardIdx(move));
+
+	const bool iWonMiniBoard = bigBoard[MY_PLAYER_IDX] & (1 << miniBoardIdx);
+	const bool opponentWonMiniBoard = bigBoard[OPPONENT_PLAYER_IDX] & (1 << miniBoardIdx);
+	const bool drawnMiniBoard = bigBoardDraw & (1 << miniBoardIdx);
+	const bool miniBoardPlayable = !iWonMiniBoard && !opponentWonMiniBoard && !drawnMiniBoard;
+
+	if (miniBoardPlayable) {
+		const short miniBoardInnerIdx = getMiniBoardInnerIdx(move);
+
+		const bool iPlayedOnSquare = board[MY_PLAYER_IDX][miniBoardIdx] & (1 << miniBoardInnerIdx);
+		const bool opponentPlayedOnSquare = board[OPPONENT_PLAYER_IDX][miniBoardIdx] & (1 << miniBoardInnerIdx);
+		valid = !iPlayedOnSquare && !opponentPlayedOnSquare;
 	}
-	else if (boardFull(board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx])) {
-		bigBoardDraw |= (1 << miniBoardIdx);
+	else {
+		valid = false;
 	}
 
-	if (checkForWin(bigBoard[player])) {
-		status = (MY_PLAYER_IDX == player) ? BoardStatus::I_WON : BoardStatus::OPPONENT_WON;
-	}
-	else if (boardFull(bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw)) {
-		status = BoardStatus::DRAW;
+	return valid;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Board::playMove(const Coords move) {
+	bool movePlayed = false;
+
+	if (validMove(move)) {
+		setMove(move);
+		setPlayerIdx(move, player);
+
+		const int miniBoardIdx = getMiniBoardIdx(move);
+		const short miniBoard = board[player][miniBoardIdx];
+		if (checkForWin(miniBoard)) {
+			bigBoard[player] |= (1 << miniBoardIdx);
+		}
+		else if (boardFull(board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx])) {
+			bigBoardDraw |= (1 << miniBoardIdx);
+		}
+
+		if (checkForWin(bigBoard[player])) {
+			status = (MY_PLAYER_IDX == player) ? BoardStatus::I_WON : BoardStatus::OPPONENT_WON;
+		}
+		else if (boardFull(bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw)) {
+			status = BoardStatus::DRAW;
+		}
+
+		player = togglePlayer(player);
+		movePlayed = true;
 	}
 
-	player = togglePlayer(player);
+	return movePlayed;
 }
 
 //*************************************************************************************************************
@@ -575,12 +613,33 @@ vector<Coords> Board::getAllPossibleMoves() const {
 int Board::simulateRandomGame() {
 	//cerr << *this << endl << "*************************************" << endl;
 
+	//vector<Coords> allMoves = getAllPossibleMoves();
+	//vector<int> validMoves(allMoves.size(), 0);
+	//const int allMovesCount = static_cast<int>(allMoves.size());
+
 	while (BoardStatus::IN_PROGRESS == status) {
 		vector<Coords> allMoves = getAllPossibleMoves();
-
 		Coords randomMove = allMoves[rand() % allMoves.size()];
-		playMove(randomMove);
 
+		while (!playMove(randomMove)) {
+			randomMove = allMoves[rand() % allMoves.size()];
+		}
+
+		//int randomMoveIdx = rand() % allMovesCount;
+		//Coords randomMove = allMoves[randomMoveIdx];
+		//
+		//while (!playMove(randomMove)) {
+		//	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
+		//		if (INVALID_IDX != validMoves[moveIdx]) {
+		//			randomMove = allMoves[moveIdx];
+		//			randomMoveIdx = moveIdx;
+		//			break;
+		//		}
+		//	}
+		//}
+		//
+		//validMoves[randomMoveIdx] = INVALID_IDX;
+		//
 		//cerr << *this << endl << "*************************************" << endl;
 	}
 
@@ -694,22 +753,30 @@ bool Board::playableMiniBoard(const int miniBoardIdx) const {
 //*************************************************************************************************************
 
 ostream& operator<<(std::ostream& stream, const Board& board) {
-	for (int rowIdx = 0; rowIdx < BOARD_DIM; ++rowIdx) {
+	for (int rowIdx = 0; rowIdx < BOARD_DIM + 1; ++rowIdx) {
 		if (rowIdx > 0 && 0 == rowIdx % TRIPLE) {
 			stream << endl;
 		}
 
-		for (int colIdx = 0; colIdx < BOARD_DIM; ++colIdx) {
-			if (colIdx > 0 && 0 == colIdx % TRIPLE) {
+		for (int colIdx = 0; colIdx < BOARD_DIM + 1; ++colIdx) {
+			if (0 == colIdx % TRIPLE) {
 				stream << SPACE << SPACE << SPACE;
 			}
 
-			const int playerIdx = board.getPlayerIdx({ rowIdx, colIdx });
+			if (BOARD_DIM == rowIdx) {
+				stream << colIdx;
+			}
+			else if (BOARD_DIM == colIdx) {
+				stream << rowIdx;
+			}
+			else {
+				const int playerIdx = board.getPlayerIdx({ rowIdx, colIdx });
 
-			switch (playerIdx) {
-				case MY_PLAYER_IDX: { stream << MY_PLAYER_CHAR; break; }
-				case OPPONENT_PLAYER_IDX: { stream << OPPONENT_PLAYER_CHAR; break; }
-				default: { stream << EMPTY_CHAR; break; }
+				switch (playerIdx) {
+					case MY_PLAYER_IDX: { stream << MY_PLAYER_CHAR; break; }
+					case OPPONENT_PLAYER_IDX: { stream << OPPONENT_PLAYER_CHAR; break; }
+					default: { stream << EMPTY_CHAR; break; }
+				}
 			}
 		}
 
@@ -907,7 +974,7 @@ void Tree::print() const {
 	string treeString = EMPTY_STRING;
 	dfsPrint(0, 0, false, treeString);
 
-	cerr << treeString << endl;
+	//cerr << treeString << endl;
 	int debug = 0;
 	++debug;
 }
@@ -1019,11 +1086,11 @@ private:
 	void backPropagation(const int nodeToExploreIdx, const int simulationResult);
 
 	/// Calculate the upper confidence bound for the given parmeters
-	/// @param[in] nodeWinScore
-	/// @param[in] totalVisits
-	/// @param[in] nodeVisit
+	/// @param[in] nodeWinScore the score so far for the node
+	/// @param[in] parentVisits the number of visits for the parent
+	/// @param[in] nodeVisit the number of visits for the node
 	/// @return the UCT score
-	double uct(const double nodeWinScore, const int totalVisits, const int nodeVisit) const;
+	double uct(const double nodeWinScore, const int parentVisits, const int nodeVisit) const;
 
 	/// Start the search
 	/// @param[in] turnIdx the turn index
@@ -1039,6 +1106,7 @@ private:
 	Board& initialBoard; ///< Current state of the board
 	long long timeLimit; ///< How long to simulate
 	double sqrtOf2; ///< Square root of tw, compute only once
+	double maxDouble; ///< Infinity
 	int turnRootNodeIdx; ///< The root node for the current turn, from which the simulations starts
 };
 
@@ -1051,6 +1119,7 @@ MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
 	turnRootNodeIdx{ 0 }
 {
 	sqrtOf2 = sqrt(2.0);
+	maxDouble = numeric_limits<double>::max();
 	searchTree.init(initialBoard);
 }
 
@@ -1061,23 +1130,26 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	searchBegin(turnIdx);
 
 	int iteration = 0;
-	while (iteration++ < MONTE_CARLO_ITERATIONS) {
-		cerr << iteration << endl;
+	while (iteration < MONTE_CARLO_ITERATIONS) {
 		const int selectedNodeIdx = selectPromisingNode();
-
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
-		if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
+		const State& selectedState = selectedNode.getState();
+		const Board& selectedBoard = selectedState.getBoard();
+		const BoardStatus selectedBoardStatus = selectedBoard.getStatus();
+
+		if (BoardStatus::IN_PROGRESS == selectedBoard.getStatus()) {
 			expansion(selectedNodeIdx);
 		}
-
+		
 		int nodeToExploreIdx = selectedNodeIdx;
 		if (selectedNode.getChildrenCount() > 0) {
-			const int randomChildIdx = rand() % selectedNode.getChildrenCount();
-			nodeToExploreIdx = selectedNode.getChildren()[randomChildIdx];
+			nodeToExploreIdx = selectedNode.getChildren()[0];
 		}
 
 		int victoriousPlayer = simulation(nodeToExploreIdx);
 		backPropagation(nodeToExploreIdx, victoriousPlayer);
+
+		++iteration;
 	}
 
 	searchEnd(turnIdx);
@@ -1108,7 +1180,7 @@ void MonteCarloTreeSearch::debug() const {
 //*************************************************************************************************************
 
 int MonteCarloTreeSearch::selectPromisingNode() const {
-	cerr << "selectPromisingNode" << endl;
+	//cerr << "selectPromisingNode" << endl;
 	int currentNodeIdx = turnRootNodeIdx;
 
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
@@ -1117,7 +1189,7 @@ int MonteCarloTreeSearch::selectPromisingNode() const {
 		const vector<int>& nodeChildren = currentNode.getChildren();
 
 		double maxUCT = 0.0;
-		for (int childIdx = 0; childIdx < static_cast<int>(nodeChildren.size()); ++childIdx) {
+		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeChildren[childIdx];
 			const Node& childNode = searchTree.getNode(childNodeIdx);
 			const State& childState = childNode.getState();
@@ -1137,16 +1209,13 @@ int MonteCarloTreeSearch::selectPromisingNode() const {
 //*************************************************************************************************************
 
 void MonteCarloTreeSearch::expansion(const int selectedNode) {
-	cerr << "expansion" << endl;
 	Node& parentNode = searchTree.getNode(selectedNode);
 	const State& parentState = parentNode.getState();
 	const Board& parentBoard = parentState.getBoard();
 	vector<Coords> allMoves = parentBoard.getAllPossibleMoves();
-	cerr << "allMoves.size(): " << allMoves.size() << endl;
-	cerr << "allMoves: ";
+	const int allMovesCount = static_cast<int>(allMoves.size());
 
-	for (int moveIdx = 0; moveIdx < static_cast<int>(allMoves.size()); ++moveIdx) {
-		cerr << "{" << allMoves[moveIdx].getRowCoord() << ", " << allMoves[moveIdx].getColCoord() << "} ";
+	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
 		Board childBoard{ parentBoard };
 		childBoard.playMove(allMoves[moveIdx]);
 
@@ -1156,14 +1225,13 @@ void MonteCarloTreeSearch::expansion(const int selectedNode) {
 		const int childNodeIdx = searchTree.addNode(childNode);
 		parentNode.addChild(childNodeIdx);
 	}
-	cerr << endl;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
-	cerr << "simulation" << endl;
+	//cerr << "simulation" << endl;
 	// Copy board, so no need to reset afterwards
 	Board boardToSimulate = searchTree.getNode(nodeToExploreIdx).getState().getBoard();
 
@@ -1174,7 +1242,7 @@ int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
 //*************************************************************************************************************
 
 void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int victoriousPlayer) {
-	cerr << "backPropagation" << endl;
+	//cerr << "backPropagation" << endl;
 	int currentNodeIdx = nodeToExploreIdx;
 	while (INVALID_IDX != currentNodeIdx) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
@@ -1194,12 +1262,12 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-double MonteCarloTreeSearch::uct(const double nodeWinScore, const int totalVisits, const int nodeVisit) const {
-	double uctValue{ MAX_DOUBLE };
+double MonteCarloTreeSearch::uct(const double nodeWinScore, const int parentVisits, const int nodeVisit) const {
+	double uctValue{ maxDouble };
 
 	if (nodeVisit > 0) {
 		const double nodeVisitDouble = static_cast<double>(nodeVisit);
-		const double totalVisitsDouble = static_cast<double>(totalVisits);
+		const double totalVisitsDouble = static_cast<double>(parentVisits);
 		const double winVisitsRatio = nodeWinScore / nodeVisitDouble;
 		const double confidentRatio = sqrtOf2 * sqrt(log(totalVisitsDouble) / nodeVisitDouble); // sqrt and log may slow the program
 
@@ -1219,19 +1287,14 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 	else {
 		const Node& currentRoot = searchTree.getNode(turnRootNodeIdx);
 		const vector<int> currentRootChildren = currentRoot.getChildren();
-		cerr << "Root children count: " << currentRootChildren.size() << endl;
-		cerr << "Children: ";
 		for (const int childIdx : currentRootChildren) {
 			const Node& child = searchTree.getNode(childIdx);
 			const Coords childMove = child.getState().getBoard().getMove();
-			cerr << "{" << childMove.getRowCoord() << ", " << childMove.getColCoord() << "}; ";
 
 			if (opponentMove == child.getState().getBoard().getMove()) {
 				turnRootNodeIdx = childIdx;
-				//break;
 			}
 		}
-		cerr << endl;
 	}
 }
 
@@ -1239,30 +1302,35 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 //*************************************************************************************************************
 
 void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
-	cerr << "searchEnd" << endl;
-
 	if (0 == turnIdx && !opponentMove.isValid()) {
 		// If I'm fisrt the tree is build for a play in the middle
 		bestMove = { BOARD_DIM / 2, BOARD_DIM / 2 };
 	}
 	else {
 		const vector<int>& rootChildren = searchTree.getNode(turnRootNodeIdx).getChildren();
-		int bestChildIdx = rootChildren[0]; // Score for all children may be 0.0
-		double maxScore = 0.0;
-		for (int childIdx = 0; childIdx < static_cast<int>(rootChildren.size()); ++childIdx) {
-			const int childNodeIdx = rootChildren[childIdx];
-			const double childScore = searchTree.getNode(childNodeIdx).getState().getWinScore();
-			if (childScore > maxScore) {
-				maxScore = childScore;
-				bestChildIdx = childNodeIdx;
+
+		if (rootChildren.size() > 0) {
+			int bestChildIdx = rootChildren[0]; // Score for all children may be 0.0
+			double maxScore = 0.0;
+			for (int childIdx = 0; childIdx < static_cast<int>(rootChildren.size()); ++childIdx) {
+				const int childNodeIdx = rootChildren[childIdx];
+				const double childScore = searchTree.getNode(childNodeIdx).getState().getWinScore();
+				if (childScore > maxScore) {
+					maxScore = childScore;
+					bestChildIdx = childNodeIdx;
+				}
 			}
-		}
 
-		bestMove = searchTree.getNode(bestChildIdx).getState().getBoard().getMove();
-		turnRootNodeIdx = bestChildIdx;
+			const Board& bestMoveBoard = searchTree.getNode(bestChildIdx).getState().getBoard();
 
-		if (0 == searchTree.getNode(turnRootNodeIdx).getChildrenCount()) {
-			expansion(turnRootNodeIdx);
+			cerr << bestMoveBoard << endl << endl;
+
+			bestMove = bestMoveBoard.getMove();
+			turnRootNodeIdx = bestChildIdx;
+
+			if (0 == searchTree.getNode(turnRootNodeIdx).getChildrenCount()) {
+				expansion(turnRootNodeIdx);
+			}
 		}
 	}
 
@@ -1374,6 +1442,8 @@ void Game::getGameInput() {
 //*************************************************************************************************************
 
 void Game::getTurnInput() {
+	cerr << "Turn: " << turnsCount << endl;
+
 	int opponentRow;
 	int opponentCol;
 	cin >> opponentRow >> opponentCol; cin.ignore();
@@ -1425,6 +1495,8 @@ void Game::turnBegin() {
 	else {
 		board.playMove(opponentMove);
 	}
+
+	cerr << board << endl;
 
 	if (0 == turnsCount) {
 		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
