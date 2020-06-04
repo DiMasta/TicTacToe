@@ -51,7 +51,7 @@ static constexpr int BOARD_DIM = 9;
 static constexpr int PLAYER_TOGGLE = 2;
 static constexpr int MY_PLAYER_IDX = 0;
 static constexpr int OPPONENT_PLAYER_IDX = 1;
-static constexpr int MONTE_CARLO_ITERATIONS = 300;
+static constexpr int MONTE_CARLO_ITERATIONS = 1'000;
 
 static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
@@ -1298,7 +1298,7 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 	if (0 == turnIdx && !opponentMove.isValid()) {
 		// If I'm fisrt the tree is build for a play in the middle
-		bestMove = { BOARD_DIM / 2, BOARD_DIM / 2 };
+		bestMove = { 0, 0 };
 	}
 	else {
 		const vector<int>& rootChildren = searchTree.getNode(turnRootNodeIdx).getChildren();
@@ -1485,7 +1485,8 @@ void Game::turnBegin() {
 	}
 	else if (0 == turnsCount) {
 		board.setPlayer(MY_PLAYER_IDX);
-		board.playMove({ BOARD_DIM / 2, BOARD_DIM / 2 }); // Play in the middle if I'm first
+		//board.playMove({ BOARD_DIM / 2, BOARD_DIM / 2 }); // Play in the middle if I'm first
+		board.playMove({ 0, 0 }); // Play in the middle if I'm first
 	}
 	else {
 		board.playMove(opponentMove);
