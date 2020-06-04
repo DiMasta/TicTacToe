@@ -18,6 +18,7 @@
 #include <cmath>
 #include <iomanip>
 #include <chrono>
+#include <cassert>
 
 using namespace std;
 
@@ -50,13 +51,13 @@ static constexpr int BOARD_DIM = 9;
 static constexpr int PLAYER_TOGGLE = 2;
 static constexpr int MY_PLAYER_IDX = 0;
 static constexpr int OPPONENT_PLAYER_IDX = 1;
-static constexpr int MONTE_CARLO_ITERATIONS = 2;
+static constexpr int MONTE_CARLO_ITERATIONS = 256;
 
 static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
 static constexpr char EMPTY_CHAR = '_';
 
-static constexpr size_t NODES_TO_RESERVE = 2'000;
+static constexpr size_t NODES_TO_RESERVE = 200'000;
 static constexpr size_t MAX_CHILDREN_COUNT = 81;
 
 static constexpr long long FIRST_TURN_MS = 1'000;
@@ -404,6 +405,9 @@ private:
 	/// Return true if the given mini board is playable
 	bool playableMiniBoard(const int miniBoardIdx) const;
 
+	/// Detemine which player wins when the board is full
+	BoardStatus resolveDraw() const;
+
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
 	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
 	int player; ///< The player index for which is this state
@@ -583,7 +587,7 @@ bool Board::playMove(const Coords move) {
 			status = (MY_PLAYER_IDX == player) ? BoardStatus::I_WON : BoardStatus::OPPONENT_WON;
 		}
 		else if (boardFull(bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw)) {
-			status = BoardStatus::DRAW;
+			status = resolveDraw();
 		}
 
 		player = togglePlayer(player);
@@ -611,47 +615,15 @@ vector<Coords> Board::getAllPossibleMoves() const {
 //*************************************************************************************************************
 
 int Board::simulateRandomGame() {
-	//cerr << *this << endl << "*************************************" << endl;
-
-	//vector<Coords> allMoves = getAllPossibleMoves();
-	//vector<int> validMoves(allMoves.size(), 0);
-	//const int allMovesCount = static_cast<int>(allMoves.size());
-
 	while (BoardStatus::IN_PROGRESS == status) {
 		vector<Coords> allMoves = getAllPossibleMoves();
 		Coords randomMove = allMoves[rand() % allMoves.size()];
+		//Coords randomMove = allMoves[0];
 
-		while (!playMove(randomMove)) {
-			randomMove = allMoves[rand() % allMoves.size()];
-		}
-
-		//int randomMoveIdx = rand() % allMovesCount;
-		//Coords randomMove = allMoves[randomMoveIdx];
-		//
-		//while (!playMove(randomMove)) {
-		//	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
-		//		if (INVALID_IDX != validMoves[moveIdx]) {
-		//			randomMove = allMoves[moveIdx];
-		//			randomMoveIdx = moveIdx;
-		//			break;
-		//		}
-		//	}
-		//}
-		//
-		//validMoves[randomMoveIdx] = INVALID_IDX;
-		//
-		//cerr << *this << endl << "*************************************" << endl;
+		playMove(randomMove);
 	}
 
-	int victoriousPlayer = INVALID_IDX;
-	if (BoardStatus::I_WON == status) {
-		victoriousPlayer = MY_PLAYER_IDX;
-	}
-	else if (BoardStatus::OPPONENT_WON == status) {
-		victoriousPlayer = OPPONENT_PLAYER_IDX;
-	}
-
-	return victoriousPlayer;
+	return BoardStatus::I_WON == status ? MY_PLAYER_IDX : OPPONENT_PLAYER_IDX;
 }
 
 //*************************************************************************************************************
@@ -747,6 +719,26 @@ bool Board::playableMiniBoard(const int miniBoardIdx) const {
 	const bool boardDraw = miniBoardMask & bigBoardDraw;
 
 	return !boardWon && !boardDraw;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+
+BoardStatus Board::resolveDraw() const {
+	int opponentMiniBoardsWon = 0;
+	int mineMiniBoardsWon = 0;
+
+	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+		if (bigBoard[OPPONENT_PLAYER_IDX] & (1 << miniBoardIdx)) {
+			++opponentMiniBoardsWon;
+		}
+		else {
+			++mineMiniBoardsWon;
+		}
+	}
+
+	return (opponentMiniBoardsWon > mineMiniBoardsWon) ? BoardStatus::OPPONENT_WON : BoardStatus::I_WON;
 }
 
 //*************************************************************************************************************
@@ -963,6 +955,8 @@ void Tree::setRootPlayer(const int playerIdx) {
 //*************************************************************************************************************
 
 int Tree::addNode(const Node& node) {
+	assert(nodes.capacity() <= NODES_TO_RESERVE);
+
 	nodes.push_back(node);
 	return static_cast<int>(nodes.size() - 1);
 }
@@ -1188,7 +1182,7 @@ int MonteCarloTreeSearch::selectPromisingNode() const {
 		const int parentVisits = currentNode.getState().getVisits();
 		const vector<int>& nodeChildren = currentNode.getChildren();
 
-		double maxUCT = 0.0;
+		double maxUCT = -1.0;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeChildren[childIdx];
 			const Node& childNode = searchTree.getNode(childNodeIdx);
@@ -1323,7 +1317,8 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 
 			const Board& bestMoveBoard = searchTree.getNode(bestChildIdx).getState().getBoard();
 
-			cerr << bestMoveBoard << endl << endl;
+			//cerr << bestMoveBoard << endl << endl;
+			//cerr << "All nodes count: " << searchTree.getNodesCount() << endl;
 
 			bestMove = bestMoveBoard.getMove();
 			turnRootNodeIdx = bestChildIdx;
@@ -1442,7 +1437,7 @@ void Game::getGameInput() {
 //*************************************************************************************************************
 
 void Game::getTurnInput() {
-	cerr << "Turn: " << turnsCount << endl;
+	//cerr << "Turn: " << turnsCount << endl;
 
 	int opponentRow;
 	int opponentCol;
@@ -1496,7 +1491,7 @@ void Game::turnBegin() {
 		board.playMove(opponentMove);
 	}
 
-	cerr << board << endl;
+	//cerr << board << endl;
 
 	if (0 == turnsCount) {
 		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
