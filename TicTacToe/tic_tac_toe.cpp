@@ -48,6 +48,7 @@ static constexpr int BASE_10 = 10;
 static constexpr int BASE_16 = 16;
 static constexpr int STOP_INPUT = 10;
 static constexpr int BOARD_DIM = 9;
+static constexpr int ALL_SQUARES = BOARD_DIM * BOARD_DIM;
 static constexpr int PLAYER_TOGGLE = 2;
 static constexpr int MY_PLAYER_IDX = 0;
 static constexpr int OPPONENT_PLAYER_IDX = 1;
@@ -366,8 +367,9 @@ public:
 
 	/// Check if the given move could be performed
 	/// @param[in] move the coordinates on which the player plays
+	/// @param[in] previousMove the coordinates on which the last player played
 	/// return true if the given move could be performed
-	bool validMove(const Coords move);
+	bool validMove(const Coords move, const Coords previousMove);
 
 	/// Appply the given move for the given player and chage the player
 	/// @param[in] move the coordinates on which the player plays
@@ -407,6 +409,9 @@ private:
 
 	/// Detemine which player wins when the board is full
 	BoardStatus resolveDraw() const;
+
+	/// Return true if the mini board could be used for play
+	bool miniBoardPlayable(const int miniBoardIdx) const;
 
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
 	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
@@ -540,22 +545,23 @@ void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-bool Board::validMove(const Coords move) {
+bool Board::validMove(const Coords move, const Coords previousMove) {
 	bool valid = true;
 
 	const short miniBoardIdx = static_cast<short>(getMiniBoardIdx(move));
+	const short miniBoardIdxFromPrevMove = getMiniBoardInnerIdx(previousMove);
 
-	const bool iWonMiniBoard = bigBoard[MY_PLAYER_IDX] & (1 << miniBoardIdx);
-	const bool opponentWonMiniBoard = bigBoard[OPPONENT_PLAYER_IDX] & (1 << miniBoardIdx);
-	const bool drawnMiniBoard = bigBoardDraw & (1 << miniBoardIdx);
-	const bool miniBoardPlayable = !iWonMiniBoard && !opponentWonMiniBoard && !drawnMiniBoard;
+	if (!miniBoardPlayable(miniBoardIdxFromPrevMove) || miniBoardIdx == miniBoardIdxFromPrevMove) {
+		if (miniBoardPlayable(miniBoardIdx)) {
+			const short miniBoardInnerIdx = getMiniBoardInnerIdx(move);
 
-	if (miniBoardPlayable) {
-		const short miniBoardInnerIdx = getMiniBoardInnerIdx(move);
-
-		const bool iPlayedOnSquare = board[MY_PLAYER_IDX][miniBoardIdx] & (1 << miniBoardInnerIdx);
-		const bool opponentPlayedOnSquare = board[OPPONENT_PLAYER_IDX][miniBoardIdx] & (1 << miniBoardInnerIdx);
-		valid = !iPlayedOnSquare && !opponentPlayedOnSquare;
+			const bool iPlayedOnSquare = board[MY_PLAYER_IDX][miniBoardIdx] & (1 << miniBoardInnerIdx);
+			const bool opponentPlayedOnSquare = board[OPPONENT_PLAYER_IDX][miniBoardIdx] & (1 << miniBoardInnerIdx);
+			valid = !iPlayedOnSquare && !opponentPlayedOnSquare;
+		}
+		else {
+			valid = false;
+		}
 	}
 	else {
 		valid = false;
@@ -615,12 +621,26 @@ vector<Coords> Board::getAllPossibleMoves() const {
 //*************************************************************************************************************
 
 int Board::simulateRandomGame() {
-	//Coords
+	//Coords previousMove = move;
+	//for (int moveIdx = 0; moveIdx < ALL_SQUARES; ++moveIdx) {
+	//	Coords randomMove{ moveIdx / BOARD_DIM, moveIdx % BOARD_DIM };
+	//
+	//	if (BoardStatus::IN_PROGRESS != status) {
+	//		break;
+	//	}
+	//	else if (!validMove(randomMove, previousMove)) {
+	//		continue;
+	//	}
+	//
+	//	playMove(randomMove);
+	//	previousMove = randomMove;
+	//	moveIdx = 0;
+	//}
 
 	while (BoardStatus::IN_PROGRESS == status) {
 		const vector<Coords>& allMoves = getAllPossibleMoves();
 		Coords randomMove = allMoves[rand() % allMoves.size()];
-
+	
 		playMove(randomMove);
 	}
 
@@ -741,6 +761,17 @@ BoardStatus Board::resolveDraw() const {
 	}
 
 	return (opponentMiniBoardsWon > mineMiniBoardsWon) ? BoardStatus::OPPONENT_WON : BoardStatus::I_WON;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Board::miniBoardPlayable(const int miniBoardIdx) const {
+	const bool iWonMiniBoard = bigBoard[MY_PLAYER_IDX] & (1 << miniBoardIdx);
+	const bool opponentWonMiniBoard = bigBoard[OPPONENT_PLAYER_IDX] & (1 << miniBoardIdx);
+	const bool drawnMiniBoard = bigBoardDraw & (1 << miniBoardIdx);
+
+	return !iWonMiniBoard && !opponentWonMiniBoard && !drawnMiniBoard;
 }
 
 //*************************************************************************************************************
