@@ -570,7 +570,7 @@ bool Board::validMove(const Coords move) {
 bool Board::playMove(const Coords move) {
 	bool movePlayed = false;
 
-	if (validMove(move)) {
+	//if (validMove(move)) {
 		setMove(move);
 		setPlayerIdx(move, player);
 
@@ -592,7 +592,7 @@ bool Board::playMove(const Coords move) {
 
 		player = togglePlayer(player);
 		movePlayed = true;
-	}
+	//}
 
 	return movePlayed;
 }
@@ -615,10 +615,11 @@ vector<Coords> Board::getAllPossibleMoves() const {
 //*************************************************************************************************************
 
 int Board::simulateRandomGame() {
+	//Coords
+
 	while (BoardStatus::IN_PROGRESS == status) {
-		vector<Coords> allMoves = getAllPossibleMoves();
+		const vector<Coords>& allMoves = getAllPossibleMoves();
 		Coords randomMove = allMoves[rand() % allMoves.size()];
-		//Coords randomMove = allMoves[0];
 
 		playMove(randomMove);
 	}
@@ -678,6 +679,7 @@ vector<Coords> Board::getAllPossibleMovesForMiniBoard(const int miniBoardIdx) co
 
 vector<Coords> Board::getAllPossibleMovesForAllMiniBoards() const {
 	vector<Coords> allMoves;
+	allMoves.reserve(BOARD_DIM * BOARD_DIM);
 	
 	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
 		vector<Coords> miniBoardMoves = getAllPossibleMovesForMiniBoard(miniBoardIdx);
@@ -1323,11 +1325,9 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 				}
 			}
 
+			cerr << "maxScore: " << maxScore << endl;
+
 			const Board& bestMoveBoard = searchTree.getNode(bestChildIdx).getState().getBoard();
-
-			//cerr << bestMoveBoard << endl << endl;
-			//cerr << "All nodes count: " << searchTree.getNodesCount() << endl;
-
 			bestMove = bestMoveBoard.getMove();
 			turnRootNodeIdx = bestChildIdx;
 
