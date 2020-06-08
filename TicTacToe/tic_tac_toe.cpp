@@ -339,13 +339,6 @@ public:
 	Board();
 	Board(const Board& rhs);
 
-	//void setPlayer(const int player) { this->player = player; }
-	//void setMove(Coords move) { this->move = move; }
-	//
-	//BoardStatus getStatus() const { return status; }
-	//int getPlayer() const { return player; }
-	//Coords getMove() const { return move; }
-
 	void setStatus(const BoardStatus status);
 	void setPlayer(const int player);
 	void setMove(const Coords move);
@@ -395,6 +388,11 @@ public:
 	/// Return list of all playable coordinates
 	vector<Coords> getAllPossibleMoves() const;
 
+	/// Fill all possible moves in the given array
+	/// @param[in] allMoves the array tp be filled
+	/// @param[in] allMovesCount the count to be set for all moves
+	void getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const;
+
 	/// Toggle player
 	int togglePlayer(const int playerToToggle) const;
 
@@ -412,8 +410,19 @@ private:
 	/// Return possible moves for the given mini board
 	vector<Coords> getAllPossibleMovesForMiniBoard(const int miniBoardIdx) const;
 
+	/// Fill all possible moves, for the given board, in the given array
+	/// @param[in] miniBoardIdx the moves for the this board
+	/// @param[in] allMoves the array tp be filled
+	/// @param[in] allMovesCount the count to be set for all moves
+	void getAllPossibleMovesForMiniBoard(const int miniBoardIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) const;
+
 	/// Return possible moves in all mini boards
 	vector<Coords> getAllPossibleMovesForAllMiniBoards() const;
+
+	/// Fill all possible moves, for the big board, in the given array
+	/// @param[in] allMoves the array tp be filled
+	/// @param[in] allMovesCount the count to be set for all moves
+	void getAllPossibleMovesForAllMiniBoards(Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) const;
 
 	/// Return true if the player wins on the given board
 	bool checkForWin(const short boardToCheck) const;
@@ -432,9 +441,6 @@ private:
 
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
 	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
-	//int player; ///< The player index for which is this state
-	//Coords move; ///< Move which led to this board
-	//BoardStatus status; ///< Status of the board
 	unsigned flags; ///< Flags and masks for the board
 	short bigBoardDraw; ///< Flags indicating which mini boards ended in draw
 };
@@ -529,8 +535,6 @@ void Board::init() {
 		bigBoard[miniBoardIdx] = EMPTY_TICTACTOE_BOARD;
 	}
 
-	//player = INVALID_IDX;
-	//status = BoardStatus::IN_PROGRESS;
 	flags = 0;
 	setStatus(BoardStatus::IN_PROGRESS);
 	bigBoardDraw = EMPTY_TICTACTOE_BOARD;
@@ -540,9 +544,6 @@ void Board::init() {
 //*************************************************************************************************************
 
 void Board::copy(const Board& rhs) {
-	//this->player = rhs.player;
-	//this->move = rhs.move;
-	//this->status = rhs.status;
 	this->flags = rhs.flags;
 	this->bigBoardDraw = rhs.bigBoardDraw;
 
@@ -721,9 +722,15 @@ int Board::simulateRandomGame() {
 	//	moveIdx = 0;
 	//}
 
+	Coords allMoves[ALL_SQUARES]; // Reuse array
+	int allMovesCount;
+
 	while (BoardStatus::IN_PROGRESS == getStatus()) {
-		const vector<Coords>& allMoves = getAllPossibleMoves();
-		Coords randomMove = allMoves[rand() % allMoves.size()];
+		//const vector<Coords>& allMoves = getAllPossibleMoves();
+		//Coords randomMove = allMoves[rand() % allMoves.size()];
+		
+		getAllPossibleMoves(allMoves, allMovesCount);
+		Coords randomMove = allMoves[rand() % allMovesCount];
 	
 		playMove(randomMove);
 	}
@@ -743,6 +750,20 @@ Board& Board::operator=(const Board& rhs) {
 //*************************************************************************************************************
 
 void Board::debug() const {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
+	allMovesCount = 0;
+
+	const int activeMiniBoardIdx = getMiniBoardInnerIdx(getMove()); // Current moves detemine the next mini board
+	getAllPossibleMovesForMiniBoard(activeMiniBoardIdx, allMoves, allMovesCount);
+
+	if (0 == allMovesCount) {
+		getAllPossibleMovesForAllMiniBoards(allMoves, allMovesCount);
+	}
 }
 
 //*************************************************************************************************************
@@ -778,6 +799,25 @@ vector<Coords> Board::getAllPossibleMovesForMiniBoard(const int miniBoardIdx) co
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Board::getAllPossibleMovesForMiniBoard(const int miniBoardIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) const {
+	if (playableMiniBoard(miniBoardIdx)) {
+		const short opponentBoard = board[OPPONENT_PLAYER_IDX][miniBoardIdx];
+		const short myBoard = board[MY_PLAYER_IDX][miniBoardIdx];
+
+		for (int sqIdx = 0; sqIdx < BOARD_DIM; ++sqIdx) {
+			const short squareMask = 1 << sqIdx;
+			if (!(opponentBoard & squareMask) && !(myBoard & squareMask)) {
+				Coords squarePosition = getBigBoardPosition(miniBoardIdx, sqIdx);
+				allMoves[allMovesCount] = squarePosition;
+				++allMovesCount;
+			}
+		}
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 vector<Coords> Board::getAllPossibleMovesForAllMiniBoards() const {
 	vector<Coords> allMoves;
 	allMoves.reserve(BOARD_DIM * BOARD_DIM);
@@ -788,6 +828,15 @@ vector<Coords> Board::getAllPossibleMovesForAllMiniBoards() const {
 	}
 
 	return allMoves;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::getAllPossibleMovesForAllMiniBoards(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
+	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+		getAllPossibleMovesForMiniBoard(miniBoardIdx, allMoves, allMovesCount);
+	}
 }
 
 //*************************************************************************************************************
