@@ -67,6 +67,15 @@ static constexpr long long BIAS_MS = 2;
 
 static constexpr double WIN_VALUE = 10.0;
 
+static constexpr unsigned PLAYER_FLAG		= 0b0000'0000'0000'0000'0000'0000'0000'0001;
+static constexpr unsigned STATUS_MASK		= 0b0000'0000'0000'0000'0000'0000'0000'0110;
+static constexpr unsigned MOVE_ROW_MASK		= 0b0000'0000'0000'0000'0000'0011'1111'1000;
+static constexpr unsigned MOVE_COL_MASK		= 0b0000'0000'0000'0001'1111'1100'0000'0000;
+
+static constexpr unsigned STATUS_OFFSET		= 1;
+static constexpr unsigned MOVE_ROW_OFFSET	= 3;
+static constexpr unsigned MOVE_COL_OFFSET	= 10;
+
 static constexpr int X_SQUARE = 0;
 static constexpr int O_SQUARE = 1;
 static constexpr int SQUARE_TYPES = 2; // 'X'; 'O'
@@ -330,12 +339,20 @@ public:
 	Board();
 	Board(const Board& rhs);
 
-	void setPlayer(const int player) { this->player = player; }
-	void setMove(Coords move) { this->move = move; }
+	//void setPlayer(const int player) { this->player = player; }
+	//void setMove(Coords move) { this->move = move; }
+	//
+	//BoardStatus getStatus() const { return status; }
+	//int getPlayer() const { return player; }
+	//Coords getMove() const { return move; }
 
-	BoardStatus getStatus() const { return status; }
-	int getPlayer() const { return player; }
-	Coords getMove() const { return move; }
+	void setStatus(const BoardStatus status);
+	void setPlayer(const int player);
+	void setMove(const Coords move);
+
+	BoardStatus getStatus() const;
+	int getPlayer() const;
+	Coords getMove() const;
 
 	/// Initialize the board empty squares
 	void init();
@@ -415,9 +432,10 @@ private:
 
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
 	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
-	int player; ///< The player index for which is this state
-	Coords move; ///< Move which led to this board
-	BoardStatus status; ///< Status of the board
+	//int player; ///< The player index for which is this state
+	//Coords move; ///< Move which led to this board
+	//BoardStatus status; ///< Status of the board
+	unsigned flags; ///< Flags and masks for the board
 	short bigBoardDraw; ///< Flags indicating which mini boards ended in draw
 };
 
@@ -438,6 +456,68 @@ Board::Board(const Board& rhs) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Board::setStatus(const BoardStatus status) {
+	unsigned statusToSet = static_cast<unsigned>(status);
+	statusToSet <<= STATUS_OFFSET;
+
+	flags &= ~STATUS_MASK; // First zero out the current status
+	flags |= statusToSet;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::setPlayer(const int player) {
+	flags &= ~PLAYER_FLAG; // First zero out the player flag
+	flags |= player;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Board::setMove(Coords move) {
+	unsigned rowToSet = static_cast<unsigned>(move.getRowCoord());
+	unsigned colToSet = static_cast<unsigned>(move.getColCoord());
+
+	rowToSet <<= MOVE_ROW_OFFSET;
+	colToSet <<= MOVE_COL_OFFSET;
+
+	flags &= ~MOVE_ROW_MASK; // Zero out the row
+	flags &= ~MOVE_COL_MASK; // Zero out the col
+
+	flags |= rowToSet;
+	flags |= colToSet;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+BoardStatus Board::getStatus() const {
+	return static_cast<BoardStatus>((STATUS_MASK & flags) >> STATUS_OFFSET);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Board::getPlayer() const {
+	return static_cast<int>(PLAYER_FLAG & flags);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Coords Board::getMove() const {
+	Coords res;
+
+	res.setRowCoord((flags & MOVE_ROW_MASK) >> MOVE_ROW_OFFSET);
+	res.setColCoord((flags & MOVE_COL_MASK) >> MOVE_COL_OFFSET);
+
+	return res;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Board::init() {
 	for (int sqType = 0; sqType < SQUARE_TYPES; ++sqType) {
 		for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
@@ -449,8 +529,10 @@ void Board::init() {
 		bigBoard[miniBoardIdx] = EMPTY_TICTACTOE_BOARD;
 	}
 
-	player = INVALID_IDX;
-	status = BoardStatus::IN_PROGRESS;
+	//player = INVALID_IDX;
+	//status = BoardStatus::IN_PROGRESS;
+	flags = 0;
+	setStatus(BoardStatus::IN_PROGRESS);
 	bigBoardDraw = EMPTY_TICTACTOE_BOARD;
 }
 
@@ -458,9 +540,10 @@ void Board::init() {
 //*************************************************************************************************************
 
 void Board::copy(const Board& rhs) {
-	this->player = rhs.player;
-	this->move = rhs.move;
-	this->status = rhs.status;
+	//this->player = rhs.player;
+	//this->move = rhs.move;
+	//this->status = rhs.status;
+	this->flags = rhs.flags;
 	this->bigBoardDraw = rhs.bigBoardDraw;
 
 	for (int sqTypeIdx = 0; sqTypeIdx < SQUARE_TYPES; ++sqTypeIdx) {
@@ -575,6 +658,7 @@ bool Board::validMove(const Coords move, const Coords previousMove) {
 
 bool Board::playMove(const Coords move) {
 	bool movePlayed = false;
+	const int player = getPlayer();
 
 	//if (validMove(move)) {
 		setMove(move);
@@ -590,13 +674,13 @@ bool Board::playMove(const Coords move) {
 		}
 
 		if (checkForWin(bigBoard[player])) {
-			status = (MY_PLAYER_IDX == player) ? BoardStatus::I_WON : BoardStatus::OPPONENT_WON;
+			setStatus((MY_PLAYER_IDX == player) ? BoardStatus::I_WON : BoardStatus::OPPONENT_WON);
 		}
 		else if (boardFull(bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw)) {
-			status = resolveDraw();
+			setStatus(resolveDraw());
 		}
 
-		player = togglePlayer(player);
+		setPlayer(togglePlayer(player));
 		movePlayed = true;
 	//}
 
@@ -607,7 +691,7 @@ bool Board::playMove(const Coords move) {
 //*************************************************************************************************************
 
 vector<Coords> Board::getAllPossibleMoves() const {
-	const int activeMiniBoardIdx = getMiniBoardInnerIdx(move); // Current moves detemine the next mini board
+	const int activeMiniBoardIdx = getMiniBoardInnerIdx(getMove()); // Current moves detemine the next mini board
 	vector<Coords> miniBoardEmptyPositions = getAllPossibleMovesForMiniBoard(activeMiniBoardIdx);
 
 	if (0 == miniBoardEmptyPositions.size()) {
@@ -637,14 +721,14 @@ int Board::simulateRandomGame() {
 	//	moveIdx = 0;
 	//}
 
-	while (BoardStatus::IN_PROGRESS == status) {
+	while (BoardStatus::IN_PROGRESS == getStatus()) {
 		const vector<Coords>& allMoves = getAllPossibleMoves();
 		Coords randomMove = allMoves[rand() % allMoves.size()];
 	
 		playMove(randomMove);
 	}
 
-	return BoardStatus::I_WON == status ? MY_PLAYER_IDX : OPPONENT_PLAYER_IDX;
+	return BoardStatus::I_WON == getStatus() ? MY_PLAYER_IDX : OPPONENT_PLAYER_IDX;
 }
 
 //*************************************************************************************************************
@@ -659,9 +743,6 @@ Board& Board::operator=(const Board& rhs) {
 //*************************************************************************************************************
 
 void Board::debug() const {
-	cerr << "player: " << player << endl;
-	cerr << "move: " << move << endl;
-	cerr << "status: " << static_cast<int>(status) << endl;
 }
 
 //*************************************************************************************************************
@@ -745,7 +826,6 @@ bool Board::playableMiniBoard(const int miniBoardIdx) const {
 
 //*************************************************************************************************************
 //*************************************************************************************************************
-
 
 BoardStatus Board::resolveDraw() const {
 	int opponentMiniBoardsWon = 0;
