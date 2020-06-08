@@ -22,7 +22,7 @@
 
 using namespace std;
 
-//#define REDIRECT_INPUT
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -706,32 +706,13 @@ vector<Coords> Board::getAllPossibleMoves() const {
 //*************************************************************************************************************
 
 int Board::simulateRandomGame() {
-	//Coords previousMove = move;
-	//for (int moveIdx = 0; moveIdx < ALL_SQUARES; ++moveIdx) {
-	//	Coords randomMove{ moveIdx / BOARD_DIM, moveIdx % BOARD_DIM };
-	//
-	//	if (BoardStatus::IN_PROGRESS != status) {
-	//		break;
-	//	}
-	//	else if (!validMove(randomMove, previousMove)) {
-	//		continue;
-	//	}
-	//
-	//	playMove(randomMove);
-	//	previousMove = randomMove;
-	//	moveIdx = 0;
-	//}
-
 	Coords allMoves[ALL_SQUARES]; // Reuse array
 	int allMovesCount;
 
 	while (BoardStatus::IN_PROGRESS == getStatus()) {
-		//const vector<Coords>& allMoves = getAllPossibleMoves();
-		//Coords randomMove = allMoves[rand() % allMoves.size()];
-		
 		getAllPossibleMoves(allMoves, allMovesCount);
 		Coords randomMove = allMoves[rand() % allMovesCount];
-	
+
 		playMove(randomMove);
 	}
 
@@ -1231,6 +1212,12 @@ private:
 	/// @param[in] selectedNode the node to expand
 	void expansion(const int selectedNode);
 
+	/// Expand the search tree with adding all possible child nodes to the selected node
+	/// @param[in] selectedNode the node to expand
+	/// @param[in] allMoves the all moves array to reuse
+	/// @param[in] allMovesCount allMovesCOunt to reuse
+	void expansion(const int selectedNode, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
+
 	/// Simulate game with random moves until the end
 	/// @pram[in] nodeToExploreIdx the node for which to simulate the game
 	/// @return the idx of the player who wins, -1 if draw
@@ -1285,6 +1272,9 @@ MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
 void MonteCarloTreeSearch::solve(const int turnIdx) {
 	searchBegin(turnIdx);
 
+	Coords allMoves[ALL_SQUARES]; // Reuse array
+	int allMovesCount;
+
 	int iteration = 0;
 	//while (iteration < MONTE_CARLO_ITERATIONS) {
 
@@ -1297,7 +1287,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		const BoardStatus selectedBoardStatus = selectedBoard.getStatus();
 
 		if (BoardStatus::IN_PROGRESS == selectedBoard.getStatus()) {
-			expansion(selectedNodeIdx);
+			expansion(selectedNodeIdx, allMoves, allMovesCount);
 		}
 		
 		int nodeToExploreIdx = selectedNodeIdx;
@@ -1387,6 +1377,28 @@ void MonteCarloTreeSearch::expansion(const int selectedNode) {
 		const int childNodeIdx = searchTree.addNode(childNode);
 		parentNode.addChild(childNodeIdx);
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) {
+	Node& parentNode = searchTree.getNode(selectedNode);
+	const State& parentState = parentNode.getState();
+	const Board& parentBoard = parentState.getBoard();
+	parentBoard.getAllPossibleMoves(allMoves, allMovesCount);
+
+	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
+		Board childBoard{ parentBoard };
+		childBoard.playMove(allMoves[moveIdx]);
+
+		State childState{ childBoard, 0, 0.0 };
+		Node childNode{ childState, selectedNode };
+
+		const int childNodeIdx = searchTree.addNode(childNode);
+		parentNode.addChild(childNodeIdx);
+	}
+
 }
 
 //*************************************************************************************************************
