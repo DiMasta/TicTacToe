@@ -22,7 +22,7 @@
 
 using namespace std;
 
-#define REDIRECT_INPUT
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
@@ -159,8 +159,8 @@ private:
 //*************************************************************************************************************
 
 Coords::Coords() :
-	rowCoord(INVALID_COORD),
-	colCoord(INVALID_COORD)
+	rowCoord{ INVALID_COORD },
+	colCoord{ INVALID_COORD }
 {
 }
 
@@ -168,8 +168,8 @@ Coords::Coords() :
 //*************************************************************************************************************
 
 Coords::Coords(const Coords& rhs) :
-	rowCoord(rhs.rowCoord),
-	colCoord(rhs.colCoord)
+	rowCoord{ rhs.rowCoord },
+	colCoord{ rhs.colCoord }
 {
 }
 
@@ -180,8 +180,8 @@ Coords::Coords(
 	Coord rowCoord,
 	Coord colCoord
 ) :
-	rowCoord(rowCoord),
-	colCoord(colCoord)
+	rowCoord{ rowCoord },
+	colCoord{ colCoord }
 {
 }
 
@@ -1276,7 +1276,6 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	int allMovesCount;
 
 	int iteration = 0;
-	//while (iteration < MONTE_CARLO_ITERATIONS) {
 
 	chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	while (chrono::steady_clock::now() - start < chrono::milliseconds{timeLimit}) {
@@ -1332,7 +1331,6 @@ void MonteCarloTreeSearch::debug() const {
 //*************************************************************************************************************
 
 int MonteCarloTreeSearch::selectPromisingNode() const {
-	//cerr << "selectPromisingNode" << endl;
 	int currentNodeIdx = turnRootNodeIdx;
 
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
