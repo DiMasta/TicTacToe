@@ -979,7 +979,8 @@ public:
 
 	const State& getState() const { return state; }
 	State& getState() { return state; }
-	const vector<int>& getChildren() const { return children; }
+	//const vector<int>& getChildren() const { return children; }
+	int getFirstChild() const { return firstChild; }
 	int getParentIdx() const { return parentIdx; }
 
 	/// Add child node wiht the given index
@@ -993,7 +994,8 @@ public:
 
 private:
 	State state; ///< Game state information (wins/visits) including the board
-	vector<int> children; ///< List of children nodes' ids in the list of Nodes for the trees
+	int firstChild; ///< Index of the first child in the global nodes array
+	int childrenCount; ///< Children count
 	int parentIdx; ///< The index of the parent node
 };
 
@@ -1002,23 +1004,28 @@ private:
 
 Node::Node(const State& state, const int parentIdx) :
 	state{ state },
+	firstChild{ INVALID_IDX},
+	childrenCount{ 0 },
 	parentIdx{ parentIdx }
 {
-	children.reserve(MAX_CHILDREN_COUNT);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Node::addChild(const int childIdxNode) {
-	children.push_back(childIdxNode);
+	if (0 == childrenCount) {
+		firstChild = childIdxNode;
+	}
+
+	++childrenCount;
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 int Node::getChildrenCount() const {
-	return static_cast<int>(children.size());
+	return childrenCount;
 }
 
 //*************************************************************************************************************
@@ -1026,13 +1033,6 @@ int Node::getChildrenCount() const {
 
 void Node::debug() const {
 	state.debug();
-	
-	//cerr << "Children: ";
-	//for (int childIdx : children) {
-	//	cerr << childIdx << SPACE;
-	//}
-	cerr << endl;
-	cerr << endl;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -1153,9 +1153,9 @@ void Tree::dfsPrint(const int depth, const int nodeToExploreIdx, const bool last
 		treeString += "\n";
 		printTabs(depth + 1, treeString);
 
-		const vector<int> children = nodeToExplore.getChildren();
-		for (int i = 0; i < childrenCount; ++i) {
-			dfsPrint(depth + 1, children[i], i == (childrenCount - 1), treeString);
+		const int nodesFirstChild = nodeToExplore.getFirstChild();
+		for (int i = 0; i < nodeToExplore.getChildrenCount(); ++i) {
+			dfsPrint(depth + 1, nodesFirstChild + i, i == (childrenCount - 1), treeString);
 		}
 
 		printTabs(depth + 1, treeString);
@@ -1291,7 +1291,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		
 		int nodeToExploreIdx = selectedNodeIdx;
 		if (selectedNode.getChildrenCount() > 0) {
-			nodeToExploreIdx = selectedNode.getChildren()[0];
+			nodeToExploreIdx = selectedNode.getFirstChild();
 		}
 
 		int victoriousPlayer = simulation(nodeToExploreIdx);
@@ -1336,11 +1336,11 @@ int MonteCarloTreeSearch::selectPromisingNode() const {
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
 		const Node& currentNode = searchTree.getNode(currentNodeIdx);
 		const int parentVisits = currentNode.getState().getVisits();
-		const vector<int>& nodeChildren = currentNode.getChildren();
+		const int nodeFirstChild = currentNode.getFirstChild();
 
 		double maxUCT = -1.0;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
-			const int childNodeIdx = nodeChildren[childIdx];
+			const int childNodeIdx = nodeFirstChild + childIdx;
 			const Node& childNode = searchTree.getNode(childNodeIdx);
 			const State& childState = childNode.getState();
 			const double childUCT = uct(childState.getWinScore(), parentVisits, childState.getVisits());
@@ -1403,7 +1403,6 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 //*************************************************************************************************************
 
 int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
-	//cerr << "simulation" << endl;
 	// Copy board, so no need to reset afterwards
 	Board boardToSimulate = searchTree.getNode(nodeToExploreIdx).getState().getBoard();
 
@@ -1458,13 +1457,13 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 	}
 	else {
 		const Node& currentRoot = searchTree.getNode(turnRootNodeIdx);
-		const vector<int> currentRootChildren = currentRoot.getChildren();
-		for (const int childIdx : currentRootChildren) {
-			const Node& child = searchTree.getNode(childIdx);
+		const int currentRootFirstChild = currentRoot.getFirstChild();
+		for (int childIdx = 0; childIdx < currentRoot.getChildrenCount(); ++childIdx) {
+			const Node& child = searchTree.getNode(currentRootFirstChild + childIdx);
 			const Coords childMove = child.getState().getBoard().getMove();
 
 			if (opponentMove == child.getState().getBoard().getMove()) {
-				turnRootNodeIdx = childIdx;
+				turnRootNodeIdx = currentRootFirstChild + childIdx;
 			}
 		}
 	}
@@ -1481,13 +1480,14 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 		bestMove = { BOARD_DIM / 2, BOARD_DIM / 2 };
 	}
 	else {
-		const vector<int>& rootChildren = searchTree.getNode(turnRootNodeIdx).getChildren();
+		const int rootFirstChild = searchTree.getNode(turnRootNodeIdx).getFirstChild();
+		const int rootChildrenCount = searchTree.getNode(turnRootNodeIdx).getChildrenCount();
 
-		if (rootChildren.size() > 0) {
-			int bestChildIdx = rootChildren[0]; // Score for all children may be 0.0
+		if (rootChildrenCount > 0) {
+			int bestChildIdx = rootFirstChild; // Score for all children may be 0.0
 			double maxScore = 0.0;
-			for (int childIdx = 0; childIdx < static_cast<int>(rootChildren.size()); ++childIdx) {
-				const int childNodeIdx = rootChildren[childIdx];
+			for (int childIdx = 0; childIdx < rootChildrenCount; ++childIdx) {
+				const int childNodeIdx = rootFirstChild + childIdx;
 				const double childScore = searchTree.getNode(childNodeIdx).getState().getWinScore();
 				if (childScore > maxScore) {
 					maxScore = childScore;
