@@ -1,3 +1,9 @@
+//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+//#pragma GCC target("avx")  //Enable AVX
+//#include <x86intrin.h> //AVX/SSE Extensions
+//#include <bits/stdc++.h> //All main STD libraries
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -58,7 +64,7 @@ static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
 static constexpr char EMPTY_CHAR = '_';
 
-static constexpr size_t NODES_TO_RESERVE = 2'000'000;
+static constexpr size_t NODES_TO_RESERVE = 5'000'000;
 static constexpr size_t MAX_CHILDREN_COUNT = 81;
 
 static constexpr long long FIRST_TURN_MS = 1'000;
