@@ -1,8 +1,8 @@
-//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
-//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
-//#pragma GCC target("avx")  //Enable AVX
-//#include <x86intrin.h> //AVX/SSE Extensions
-//#include <bits/stdc++.h> //All main STD libraries
+#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+#pragma GCC target("avx")  //Enable AVX
+#include <x86intrin.h> //AVX/SSE Extensions
+#include <bits/stdc++.h> //All main STD libraries
 
 #include <iostream>
 #include <string>
@@ -114,6 +114,20 @@ static void printTabs(const int tabsCount, string& str) {
 	for (int tabIdx = 0; tabIdx < tabsCount; ++tabIdx) {
 		str += TAB;
 	}
+}
+
+static unsigned int g_seed;
+
+// Used to seed the generator.
+inline void fast_srand(int seed) {
+	g_seed = seed;
+}
+
+// Compute a pseudorandom integer.
+// Output value in range [0, 32767]
+inline int fast_rand(void) {
+	g_seed = (214013 * g_seed + 2531011);
+	return (g_seed >> 16) & 0x7FFF;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -403,8 +417,10 @@ public:
 	int togglePlayer(const int playerToToggle) const;
 
 	/// Play game with random moves until end of the game is reached
+	/// @param[in] allMoves the array tp be filled
+	/// @param[in] allMovesCount the count to be set for all moves
 	/// @return the result of the game
-	int simulateRandomGame();
+	int simulateRandomGame(Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 
 	Board& operator=(const Board& board);
 	friend ostream& operator<<(std::ostream& stream, const Board& board);
@@ -711,13 +727,11 @@ vector<Coords> Board::getAllPossibleMoves() const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-int Board::simulateRandomGame() {
-	Coords allMoves[ALL_SQUARES]; // Reuse array
-	int allMovesCount;
-
+int Board::simulateRandomGame(Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) {
 	while (BoardStatus::IN_PROGRESS == getStatus()) {
 		getAllPossibleMoves(allMoves, allMovesCount);
-		Coords randomMove = allMoves[rand() % allMovesCount];
+		//Coords randomMove = allMoves[rand() % allMovesCount];
+		Coords randomMove = allMoves[fast_rand() % allMovesCount];
 
 		playMove(randomMove);
 	}
@@ -1226,8 +1240,10 @@ private:
 
 	/// Simulate game with random moves until the end
 	/// @pram[in] nodeToExploreIdx the node for which to simulate the game
+	/// @param[in] allMoves the all moves array to reuse
+	/// @param[in] allMovesCount allMovesCOunt to reuse
 	/// @return the idx of the player who wins, -1 if draw
-	int simulation(const int nodeToExploreIdx);
+	int simulation(const int nodeToExploreIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 
 	/// Back propagate the simulation result through the parents until the root
 	/// @param[in] nodeToExploreIdx the explored node
@@ -1282,9 +1298,10 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	int allMovesCount;
 
 	int iteration = 0;
-
 	chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-	while (chrono::steady_clock::now() - start < chrono::milliseconds{timeLimit}) {
+	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
+	
+	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
 		const int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 		const State& selectedState = selectedNode.getState();
@@ -1297,10 +1314,10 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		
 		int nodeToExploreIdx = selectedNodeIdx;
 		if (selectedNode.getChildrenCount() > 0) {
-			nodeToExploreIdx = selectedNode.getFirstChild();
+			nodeToExploreIdx = selectedNode.getFirstChild() + (fast_rand() % selectedNode.getChildrenCount());
 		}
 
-		int victoriousPlayer = simulation(nodeToExploreIdx);
+		int victoriousPlayer = simulation(nodeToExploreIdx, allMoves, allMovesCount);
 		backPropagation(nodeToExploreIdx, victoriousPlayer);
 
 		++iteration;
@@ -1408,11 +1425,11 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
+int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) {
 	// Copy board, so no need to reset afterwards
 	Board boardToSimulate = searchTree.getNode(nodeToExploreIdx).getState().getBoard();
 
-	return boardToSimulate.simulateRandomGame();
+	return boardToSimulate.simulateRandomGame(allMoves, allMovesCount);
 }
 
 //*************************************************************************************************************
@@ -1572,6 +1589,7 @@ Game::~Game() {
 //*************************************************************************************************************
 
 void Game::initGame() {
+	fast_srand(444);
 }
 
 //*************************************************************************************************************
