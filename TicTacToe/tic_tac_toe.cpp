@@ -73,15 +73,15 @@ static constexpr long long BIAS_MS = 2;
 
 static constexpr double WIN_VALUE = 10.0;
 
-static constexpr unsigned PLAYER_FLAG		= 0b0000'0000'0000'0000'0000'0000'0000'0001;
-static constexpr unsigned STATUS_MASK		= 0b0000'0000'0000'0000'0000'0000'0000'0110;
-static constexpr unsigned MOVE_ROW_MASK		= 0b0000'0000'0000'0000'0000'0011'1111'1000;
-static constexpr unsigned MOVE_COL_MASK		= 0b0000'0000'0000'0001'1111'1100'0000'0000;
+static constexpr unsigned short PLAYER_FLAG		= 0b0000'0000'0000'0001;
+static constexpr unsigned short STATUS_MASK		= 0b0000'0000'0000'0110;
+static constexpr unsigned short MOVE_ROW_MASK	= 0b0000'0000'0111'1000;
+static constexpr unsigned short MOVE_COL_MASK	= 0b0000'0111'1000'0000;
 
-static constexpr unsigned STATUS_OFFSET		= 1;
-static constexpr unsigned MOVE_ROW_OFFSET	= 3;
-static constexpr unsigned MOVE_COL_OFFSET	= 10;
-
+static constexpr unsigned short STATUS_OFFSET = 1;
+static constexpr unsigned short MOVE_ROW_OFFSET = 3;
+static constexpr unsigned short MOVE_COL_OFFSET = 7;
+short
 static constexpr int X_SQUARE = 0;
 static constexpr int O_SQUARE = 1;
 static constexpr int SQUARE_TYPES = 2; // 'X'; 'O'
@@ -487,7 +487,7 @@ private:
 
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
 	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
-	unsigned flags; ///< Flags and masks for the board
+	unsigned short flags; ///< Flags and masks for the board
 	short bigBoardDraw; ///< Flags indicating which mini boards ended in draw
 };
 
@@ -1534,10 +1534,7 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 				}
 			}
 
-			cerr << "maxScore: " << maxScore << endl;
-
-			const Board& bestMoveBoard = searchTree.getNode(bestChildIdx).getState().getBoard();
-			bestMove = bestMoveBoard.getMove();
+			bestMove = searchTree.getNode(bestChildIdx).getState().getBoard().getMove();
 			turnRootNodeIdx = bestChildIdx;
 
 			if (0 == searchTree.getNode(turnRootNodeIdx).getChildrenCount()) {
