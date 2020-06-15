@@ -754,10 +754,7 @@ vector<Coords> Board::getAllPossibleMoves() const {
 int Board::simulateRandomGame(Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) {
 	while (BoardStatus::IN_PROGRESS == getStatus()) {
 		getAllPossibleMoves(allMoves, allMovesCount);
-		//Coords randomMove = allMoves[fast_rand() % allMovesCount];
-
-		//playMove(randomMove);
-		playMove(allMoves[0]);
+		playMove(allMoves[fast_rand() % allMovesCount]);
 	}
 
 	return BoardStatus::I_WON == getStatus() ? MY_PLAYER_IDX : OPPONENT_PLAYER_IDX;
@@ -830,12 +827,11 @@ void Board::getAllPossibleMovesForMiniBoard(const int miniBoardIdx, Coords(&allM
 		const short myBoard = board[MY_PLAYER_IDX][miniBoardIdx];
 
 		for (int sqIdx = 0; sqIdx < BOARD_DIM; ++sqIdx) {
-			//const short squareMask = 1 << sqIdx;
-			const short squareMask = SQUARE_MASKS_PRIORITY[sqIdx];
+			const short squareMask = 1 << sqIdx;
+			//const short squareMask = SQUARE_MASKS_PRIORITY[sqIdx];
 			if (!(opponentBoard & squareMask) && !(myBoard & squareMask)) {
-				//Coords squarePosition = getBigBoardPosition(miniBoardIdx, sqIdx);
-				Coords squarePosition = getBigBoardPosition(miniBoardIdx, MINIBOARDS_PRIORITY[sqIdx]);
-				allMoves[allMovesCount] = squarePosition;
+				allMoves[allMovesCount] = getBigBoardPosition(miniBoardIdx, sqIdx);
+				//allMoves[allMovesCount] = getBigBoardPosition(miniBoardIdx, MINIBOARDS_PRIORITY[sqIdx]);
 				++allMovesCount;
 			}
 		}
@@ -850,8 +846,7 @@ vector<Coords> Board::getAllPossibleMovesForAllMiniBoards() const {
 	allMoves.reserve(BOARD_DIM * BOARD_DIM);
 	
 	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
-		//vector<Coords> miniBoardMoves = getAllPossibleMovesForMiniBoard(miniBoardIdx);
-		vector<Coords> miniBoardMoves = getAllPossibleMovesForMiniBoard(MINIBOARDS_PRIORITY[miniBoardIdx]);
+		vector<Coords> miniBoardMoves = getAllPossibleMovesForMiniBoard(miniBoardIdx);
 		allMoves.insert(allMoves.end(), miniBoardMoves.begin(), miniBoardMoves.end());
 	}
 
@@ -864,6 +859,7 @@ vector<Coords> Board::getAllPossibleMovesForAllMiniBoards() const {
 void Board::getAllPossibleMovesForAllMiniBoards(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
 	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
 		getAllPossibleMovesForMiniBoard(miniBoardIdx, allMoves, allMovesCount);
+		//getAllPossibleMovesForMiniBoard(MINIBOARDS_PRIORITY[miniBoardIdx], allMoves, allMovesCount);
 	}
 }
 
@@ -1331,19 +1327,11 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
 		int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
-		const State& selectedState = selectedNode.getState();
-		const Board& selectedBoard = selectedState.getBoard();
-		const BoardStatus selectedBoardStatus = selectedBoard.getStatus();
 
-		if (BoardStatus::IN_PROGRESS == selectedBoard.getStatus()) {
+		if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
 			expansion(selectedNodeIdx, allMoves, allMovesCount);
 			selectedNodeIdx = selectedNode.getFirstChild();
 		}
-		
-		//int nodeToExploreIdx = selectedNodeIdx;
-		//if (selectedNode.getChildrenCount() > 0) {
-		//	nodeToExploreIdx = selectedNode.getFirstChild();
-		//}
 
 		int victoriousPlayer = simulation(selectedNodeIdx, allMoves, allMovesCount);
 		backPropagation(selectedNodeIdx, victoriousPlayer);
