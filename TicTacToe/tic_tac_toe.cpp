@@ -17,7 +17,6 @@ using namespace std;
 //#define OUTPUT_GAME_DATA
 //#define TIME_MEASURERMENT
 //#define DEBUG_ONE_TURN
-//#define USE_UNIFORM_RANDOM
 
 static const string INPUT_FILE_NAME = "input.txt";
 static const string OUTPUT_FILE_NAME = "output.txt";
@@ -25,32 +24,20 @@ static const string EMPTY_STRING = "";
 static constexpr char SPACE = ' ';
 static constexpr char TAB = '\t';
 
-static constexpr int INVALID_ID = -1;
 static constexpr int INVALID_IDX = -1;
-static constexpr int INVALID_NODE_DEPTH = -1;
-static constexpr int TREE_ROOT_NODE_DEPTH = 1;
-static constexpr int ZERO_CHAR = '0';
-static constexpr int DIRECTIONS_COUNT = 8;
-static constexpr int BYTE_SIZE = 8;
-static constexpr int PAIR = 2;
 static constexpr int TRIPLE = 3;
-static constexpr int BASE_2 = 2;
-static constexpr int BASE_10 = 10;
-static constexpr int BASE_16 = 16;
 static constexpr int STOP_INPUT = 10;
 static constexpr int BOARD_DIM = 9;
 static constexpr int ALL_SQUARES = BOARD_DIM * BOARD_DIM;
 static constexpr int PLAYER_TOGGLE = 2;
 static constexpr int MY_PLAYER_IDX = 0;
 static constexpr int OPPONENT_PLAYER_IDX = 1;
-static constexpr int MONTE_CARLO_ITERATIONS = 900;
 
 static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
 static constexpr char EMPTY_CHAR = '_';
 
 static constexpr size_t NODES_TO_RESERVE = 6'000'000;
-static constexpr size_t MAX_CHILDREN_COUNT = 81;
 
 static constexpr long long FIRST_TURN_MS = 1'000;
 static constexpr long long TURN_MS = 100;
@@ -67,8 +54,6 @@ static constexpr unsigned short STATUS_OFFSET = 1;
 static constexpr unsigned short MOVE_ROW_OFFSET = 3;
 static constexpr unsigned short MOVE_COL_OFFSET = 7;
 
-static constexpr int X_SQUARE = 0;
-static constexpr int O_SQUARE = 1;
 static constexpr int SQUARE_TYPES = 2; // 'X'; 'O'
 static constexpr short EMPTY_TICTACTOE_BOARD = 0; // 9 empty squares
 
@@ -87,46 +72,12 @@ static constexpr short WIN_MASKS[WIN_MASKS_COUNT] = {
 	0b0000'000'001'010'100, // Second diagonal win
 };
 
-static constexpr short SQUARE_MASKS_PRIORITY[BOARD_DIM] = {
-	0b0000000'000'000'001,	// Upper left
-	0b0000000'100'000'000,	// Down right
-	0b0000000'000'000'100,	// Upper right
-	0b0000000'001'000'000,	// Down left
-	0b0000000'000'010'000,	// Center
-	0b0000000'000'000'010,	// Upper middle
-	0b0000000'000'001'000,	// Middle left
-	0b0000000'010'000'000,	// Bottom middle
-	0b0000000'000'100'000	// Middle right
-};
-
-static constexpr int MINIBOARDS_PRIORITY[BOARD_DIM] = {
-	0,	// Upper left
-	8,	// Down right
-	2,	// Upper right
-	6,	// Down left
-	4,	// Center
-	1,	// Upper middle
-	3,	// Middle left
-	7,	// Bottom middle
-	5	// Middle right
-};
-
 enum class BoardStatus {
 	INVALID = -1,
 	IN_PROGRESS,
 	DRAW,
 	OPPONENT_WON,
 	I_WON,
-};
-
-enum class MovePriority {
-	INVALID,
-	WINNING_BIG_BOARD,
-	WINNING_MINI_BOARD,
-	SAVING_MINI_BOARD,
-	TAKING_CENTER,
-	TAKING_CORNER,
-	TAKING_SIDE,
 };
 
 static void printTabs(const int tabsCount, string& str) {
@@ -137,13 +88,10 @@ static void printTabs(const int tabsCount, string& str) {
 
 static unsigned int g_seed;
 
-// Used to seed the generator.
 inline void fast_srand(int seed) {
 	g_seed = seed;
 }
 
-// Compute a pseudorandom integer.
-// Output value in range [0, 32767]
 inline int fast_rand(void) {
 	g_seed = (214013 * g_seed + 2531011);
 	return (g_seed >> 16) & 0x7FFF;
@@ -166,20 +114,10 @@ public:
 
 	Coords& operator=(const Coords& rhs);
 	bool operator==(const Coords& rhs);
-	Coords operator+(const Coords& rhs);
-	Coords& operator+=(const Coords& rhs);
-	Coords operator-(const Coords& rhs);
-	Coords& operator-=(const Coords& rhs);
-	Coords operator*(const Coords& rhs);
-	Coords& operator*=(const Coords& rhs);
-
 	bool isValid() const;
 
-	Coord distance(const Coords& coords) const;
-	void roundCoords();
-
-	friend Coord distance(const Coords& point0, const Coords& point1);
 	friend ostream& operator<<(ostream& stream, const Coords& coords);
+
 private:
 	Coord rowCoord;
 	Coord colCoord;
@@ -266,92 +204,14 @@ bool Coords::operator==(const Coords& rhs) {
 	return (rowCoord == rhs.rowCoord) && (colCoord == rhs.colCoord);
 }
 
-Coords Coords::operator+(const Coords& rhs) {
-	return Coords(rowCoord + rhs.rowCoord, colCoord + rhs.colCoord);
-}
-
-Coords& Coords::operator+=(const Coords& rhs) {
-	rowCoord += rhs.rowCoord;
-	colCoord += rhs.colCoord;
-
-	return *this;
-}
-
-Coords Coords::operator-(const Coords& rhs) {
-	return Coords(rowCoord - rhs.rowCoord, colCoord - rhs.colCoord);
-}
-
-Coords& Coords::operator-=(const Coords& rhs) {
-	rowCoord -= rhs.rowCoord;
-	colCoord -= rhs.colCoord;
-
-	return *this;
-}
-
-Coords Coords::operator*(const Coords& rhs) {
-	return Coords(rowCoord * rhs.rowCoord, colCoord * rhs.colCoord);
-}
-
-Coords& Coords::operator*=(const Coords& rhs) {
-	rowCoord *= rhs.rowCoord;
-	colCoord *= rhs.colCoord;
-
-	return *this;
-}
-
 bool Coords::isValid() const {
 	return INVALID_COORD != rowCoord && INVALID_COORD != colCoord;
-}
-
-Coord Coords::distance(const Coords& coords) const {
-	Coord kat0 = coords.rowCoord - rowCoord;
-	Coord kat1 = coords.colCoord - colCoord;
-
-	Coord hip = (Coord)sqrt((kat0 * kat0) + (kat1 * kat1));
-	return hip;
-}
-
-void Coords::roundCoords() {
-	rowCoord = static_cast<Coord>(round(rowCoord));
-	colCoord = static_cast<Coord>(round(colCoord));
-}
-
-Coord distance(const Coords& point0, const Coords& point1) {
-	Coord lineXLenght = static_cast<Coord>(abs(point0.rowCoord - point1.rowCoord));
-	Coord lineYLenght = static_cast<Coord>(abs(point0.colCoord - point1.colCoord));
-
-	Coord distance = static_cast<Coord>(sqrt((lineXLenght * lineXLenght) + (lineYLenght * lineYLenght)));
-
-	return distance;
 }
 
 ostream& operator<<(ostream& stream, const Coords& coords) {
 	stream << coords.rowCoord << SPACE << coords.colCoord;
 	return stream;
 }
-
-enum Direction {
-	DIR_INVALID = -1,
-	DIR_N = 0,
-	DIR_NE,
-	DIR_E,
-	DIR_SE,
-	DIR_S,
-	DIR_SW,
-	DIR_W,
-	DIR_NW,
-};
-
-Coords DIRECTIONS[DIRECTIONS_COUNT] = {
-	Coords(0, -1), // N
-	Coords(1, -1), // NE
-	Coords(1,  0), // E
-	Coords(1,  1), // SE
-	Coords(0,  1), // S
-	Coords(-1,  1), // SW
-	Coords(-1,  0), // W
-	Coords(-1, -1)  // NW
-};
 
 class Board {
 public:
@@ -373,7 +233,7 @@ public:
 	Coords getBigBoardPosition(const int miniBoardIdx, const int miniBoardInnerIdx) const;
 	int getPlayerIdx(const Coords pos) const;
 	void setPlayerIdx(const Coords pos, const int playerIdx);
-	bool validMove(const Coords move, const Coords previousMove);
+	bool validMove(const Coords move, const Coords previousMove); //!
 	bool playMove(const Coords move);
 	vector<Coords> getAllPossibleMoves() const;
 	void getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const;
@@ -382,8 +242,6 @@ public:
 
 	Board& operator=(const Board& board);
 	friend ostream& operator<<(std::ostream& stream, const Board& board);
-
-	void debug() const;
 
 private:
 	vector<Coords> getAllPossibleMovesForMiniBoard(const int miniBoardIdx) const;
@@ -396,10 +254,10 @@ private:
 	BoardStatus resolveDraw() const;
 	bool miniBoardPlayable(const int miniBoardIdx) const;
 
-	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
-	short bigBoard[SQUARE_TYPES]; /// Big Board for each player, each short representa a tictactoe board
-	unsigned short flags; ///< Flags and masks for the board
-	short bigBoardDraw; ///< Flags indicating which mini boards ended in draw
+	short board[SQUARE_TYPES][BOARD_DIM];
+	short bigBoard[SQUARE_TYPES];
+	unsigned short flags;
+	short bigBoardDraw;
 };
 
 Board::Board() {
@@ -619,9 +477,6 @@ Board& Board::operator=(const Board& rhs) {
 	return *this;
 }
 
-void Board::debug() const {
-}
-
 void Board::getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
 	allMovesCount = 0;
 
@@ -664,10 +519,8 @@ void Board::getAllPossibleMovesForMiniBoard(const int miniBoardIdx, Coords(&allM
 
 		for (int sqIdx = 0; sqIdx < BOARD_DIM; ++sqIdx) {
 			const short squareMask = 1 << sqIdx;
-			//const short squareMask = SQUARE_MASKS_PRIORITY[sqIdx];
 			if (!(opponentBoard & squareMask) && !(myBoard & squareMask)) {
 				allMoves[allMovesCount] = getBigBoardPosition(miniBoardIdx, sqIdx);
-				//allMoves[allMovesCount] = getBigBoardPosition(miniBoardIdx, MINIBOARDS_PRIORITY[sqIdx]);
 				++allMovesCount;
 			}
 		}
@@ -689,7 +542,6 @@ vector<Coords> Board::getAllPossibleMovesForAllMiniBoards() const {
 void Board::getAllPossibleMovesForAllMiniBoards(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
 	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
 		getAllPossibleMovesForMiniBoard(miniBoardIdx, allMoves, allMovesCount);
-		//getAllPossibleMovesForMiniBoard(MINIBOARDS_PRIORITY[miniBoardIdx], allMoves, allMovesCount);
 	}
 }
 
@@ -789,13 +641,10 @@ public:
 	int getVisits() const { return visits; }
 	double getWinScore() const { return winScore; }
 
-	/// Debug the State online
-	void debug() const;
-
 private:
-	Board board; ///< The game board state, which this node represents
-	int visits; ///< How many times this state is visited by the MCTS alogrithm
-	double winScore; ///< Score of the state
+	Board board;
+	int visits;
+	double winScore;
 };
 
 State::State(const Board& board, const int visits, const double winScore) :
@@ -803,10 +652,6 @@ State::State(const Board& board, const int visits, const double winScore) :
 	visits{ visits },
 	winScore{ winScore }
 {
-}
-
-void State::debug() const {
-	cerr << "winScore: " << winScore << endl;
 }
 
 class Node {
@@ -821,13 +666,11 @@ public:
 	void addChild(const int childIdxNode);
 	int getChildrenCount() const;
 
-	void debug() const;
-
 private:
-	State state; ///< Game state information (wins/visits) including the board
-	int firstChild; ///< Index of the first child in the global nodes array
-	int parentIdx; ///< The index of the parent node
-	char childrenCount; ///< Children count
+	State state;
+	int firstChild;
+	int parentIdx;
+	char childrenCount;
 };
 
 Node::Node(const State& state, const int parentIdx) :
@@ -850,10 +693,6 @@ int Node::getChildrenCount() const {
 	return childrenCount;
 }
 
-void Node::debug() const {
-	state.debug();
-}
-
 class Tree {
 public:
 	int getNodesCount() const { return static_cast<int>(nodes.size()); }
@@ -863,17 +702,10 @@ public:
 	void setRootPlayer(const int playerIdx);
 	int addNode(const Node& node);
 	void print() const;
-	void debug() const;
 
 private:
-	/// Use DFS to print the tree to file
-	/// @param[in] depth the current depth of the tree
-	/// @param[in] nodeToExplore the current Node to explore
-	/// @param[in] lastChild true if the last child must be printed
-	/// @param[out] treeString the string which is updated at each depth
 	void dfsPrint(const int depth, const int nodeToExplore, const bool lastChild, string& treeString) const;
-
-	vector<Node> nodes; ///< All nodes used in the tree
+	vector<Node> nodes;
 };
 
 void Tree::init(const Board& initialBoard) {
@@ -902,13 +734,6 @@ void Tree::print() const {
 	//cerr << treeString << endl;
 	int debug = 0;
 	++debug;
-}
-
-void Tree::debug() const {
-	for (size_t nodeIdx = 0; nodeIdx < nodes.size(); ++nodeIdx) {
-		cerr << "Node[" << nodeIdx << "]: " << endl;
-		nodes[nodeIdx].debug();
-	}
 }
 
 void Tree::dfsPrint(const int depth, const int nodeToExploreIdx, const bool lastChild, string& treeString) const {
@@ -963,14 +788,11 @@ public:
 	void setTimeLimit(long long timeLimit) { this->timeLimit = timeLimit; }
 
 	Coords getBestMove() const { return bestMove; }
-	long long getTimeLimit() const { return timeLimit; }
 	int getNodesCount() const { return searchTree.getNodesCount(); }
 
 	void solve(const int turnIdx);
 	void setRootPlayer(const int playerIdx);
 	void printSearchTree() const;
-
-	void debug() const;
 
 private:
 	int selectPromisingNode() const;
@@ -983,14 +805,14 @@ private:
 	void searchEnd(const int turnIdx);
 
 private:
-	Tree searchTree; ///< The actual search tree for the algotrithm
-	Coords opponentMove; ///< The last move for the opponent
-	Coords bestMove; ///< The best move chosen from the simulation
-	Board& initialBoard; ///< Current state of the board
-	long long timeLimit; ///< How long to simulate
-	double sqrtOf2; ///< Square root of tw, compute only once
-	double maxDouble; ///< Infinity
-	int turnRootNodeIdx; ///< The root node for the current turn, from which the simulations starts
+	Tree searchTree;
+	Coords opponentMove;
+	Coords bestMove;
+	Board& initialBoard;
+	long long timeLimit;
+	double sqrtOf2;
+	double maxDouble;
+	int turnRootNodeIdx;
 };
 
 MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
@@ -1040,10 +862,6 @@ void MonteCarloTreeSearch::setRootPlayer(const int playerIdx) {
 
 void MonteCarloTreeSearch::printSearchTree() const {
 	searchTree.print();
-}
-
-void MonteCarloTreeSearch::debug() const {
-
 }
 
 int MonteCarloTreeSearch::selectPromisingNode() const {
@@ -1112,12 +930,10 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) {
 	// Copy board, so no need to reset afterwards
 	Board boardToSimulate = searchTree.getNode(nodeToExploreIdx).getState().getBoard();
-
 	return boardToSimulate.simulateRandomGame(allMoves, allMovesCount);
 }
 
 void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int victoriousPlayer) {
-	//cerr << "backPropagation" << endl;
 	int currentNodeIdx = nodeToExploreIdx;
 	while (INVALID_IDX != currentNodeIdx) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
@@ -1205,25 +1021,19 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx) {
 class Game {
 public:
 	Game();
-	~Game();
 
 	void initGame();
-	void gameBegin();
-	void gameEnd();
 	void gameLoop();
-	void getGameInput();
 	void getTurnInput();
 	void turnBegin();
 	void makeTurn();
 	void turnEnd();
 	void play();
 
-	void debug() const;
-
 private:
-	Board board; ///< The board on which the game is played
-	MonteCarloTreeSearch monteCarloTreeSearch; ///< The AI algorithm
-	Coords opponentMove; ///< The coordinates on which the opponent plays
+	Board board;
+	MonteCarloTreeSearch monteCarloTreeSearch;
+	Coords opponentMove;
 
 	int turnsCount;
 	int stopGame;
@@ -1236,20 +1046,10 @@ Game::Game() :
 	turnsCount{ 0 },
 	stopGame{ false }
 {
-
-}
-
-Game::~Game() {
 }
 
 void Game::initGame() {
 	fast_srand(444);
-}
-
-void Game::gameBegin() {
-}
-
-void Game::gameEnd() {
 }
 
 void Game::gameLoop() {
@@ -1272,9 +1072,6 @@ void Game::gameLoop() {
 		break;
 #endif // DEBUG_ONE_TURN
 	}
-}
-
-void Game::getGameInput() {
 }
 
 void Game::getTurnInput() {
@@ -1356,27 +1153,11 @@ void Game::turnEnd() {
 
 void Game::play() {
 	initGame();
-	getGameInput();
-	gameBegin();
 	gameLoop();
-	gameEnd();
 }
 
-void Game::debug() const {
-}
-
-#ifdef TESTS
-#include "debug.h"
-#endif // TESTS
-
-int main(int argc, char** argv) {
-#ifdef TESTS
-	doctest::Context context;
-	int res = context.run();
-#else
-
+int main() {
 #ifdef REDIRECT_INPUT
-	cerr << endl << endl << endl << "!!! REDIRECT_INPUT !!!" << endl << endl << endl;
 	ifstream in(INPUT_FILE_NAME);
 	streambuf *cinbuf = cin.rdbuf();
 	cin.rdbuf(in.rdbuf());
@@ -1388,8 +1169,6 @@ int main(int argc, char** argv) {
 
 	Game game;
 	game.play();
-
-#endif // TESTS
 
 	return 0;
 }
