@@ -1,28 +1,13 @@
-#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
-#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
-#pragma GCC target("avx")  //Enable AVX
-#include <x86intrin.h> //AVX/SSE Extensions
-#include <bits/stdc++.h> //All main STD libraries
+//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+//#pragma GCC target("avx")  //Enable AVX
+//#include <x86intrin.h> //AVX/SSE Extensions
+//#include <bits/stdc++.h> //All main STD libraries
 
 #include <iostream>
 #include <string>
 #include <vector>
 #include <map>
-#include <list>
-#include <stack>
-#include <set>
-#include <queue>
-#include <algorithm>
-#include <ctime>
-#include <deque>
-#include <cmath>
-#include <climits>
-#include <cstring>
-#include <fstream>
-#include <iterator>
-#include <bitset>
-#include <cmath>
-#include <iomanip>
 #include <chrono>
 #include <cassert>
 
@@ -164,6 +149,42 @@ inline int fast_rand(void) {
 	return (g_seed >> 16) & 0x7FFF;
 }
 
+typedef int Coord;
+const Coord INVALID_COORD = -1;
+
+class Coords {
+public:
+	Coords();
+	Coords(const Coords& rhs);
+	Coords(Coord rowCoord, Coord colCoord);
+
+	Coord getRowCoord() const { return rowCoord; }
+	Coord getColCoord() const { return colCoord; }
+
+	void setRowCoord(Coord rowCoord) { this->rowCoord = rowCoord; }
+	void setColCoord(Coord colCoord) { this->colCoord = colCoord; }
+
+	Coords& operator=(const Coords& rhs);
+	bool operator==(const Coords& rhs);
+	Coords operator+(const Coords& rhs);
+	Coords& operator+=(const Coords& rhs);
+	Coords operator-(const Coords& rhs);
+	Coords& operator-=(const Coords& rhs);
+	Coords operator*(const Coords& rhs);
+	Coords& operator*=(const Coords& rhs);
+
+	bool isValid() const;
+
+	Coord distance(const Coords& coords) const;
+	void roundCoords();
+
+	friend Coord distance(const Coords& point0, const Coords& point1);
+	friend ostream& operator<<(ostream& stream, const Coords& coords);
+private:
+	Coord rowCoord;
+	Coord colCoord;
+};
+
 static const std::map<std::pair<short, short>, Coords> BEST_MOVES = {
 {{0,0},{0,0}},{{1,0},{1,1}},{{1,2},{1,0}},{{1,4},{1,0}},{{1,8},{0,1}},{{1,16},{0,1}},{{1,32},{0,2}},{{1,64},{0,1}},{{1,128},{0,2}},{{1,256},{0,2}},{{2,0},{0,0}},{{2,1},{1,0}},{{2,4},{1,1}},{{2,8},{0,0}},{{2,16},{0,0}},{{2,32},{0,2}},{{2,64},{0,0}},{{2,128},{0,0}},{{2,256},{0,2}},{{3,4},{1,2}},{{3,8},{0,2}},{{3,12},{1,1}},{{3,16},{0,2}},{{3,20},{2,0}},{{3,24},{0,2}},{{3,32},{0,2}},{{3,36},{1,0}},{{3,40},{0,2}},{{3,48},{0,2}},{{3,64},{0,2}},{{3,68},{1,1}},{{3,72},{0,2}},{{3,80},{0,2}},{{3,96},{0,2}},{{3,128},{0,2}},{{3,132},{2,0}},{{3,136},{0,2}},{{3,144},{0,2}},{{3,160},{0,2}},{{3,192},{0,2}},{{3,256},{0,2}},{{3,260},{1,0}},{{3,264},{0,2}},{{3,272},{0,2}},{{3,288},{0,2}},{{3,320},{0,2}},{{3,384},{0,2}},{{4,0},{1,1}},{{4,1},{1,2}},{{4,2},{1,1}},{{4,8},{0,0}},{{4,16},{0,0}},{{4,32},{0,0}},{{4,64},{0,0}},{{4,128},{0,0}},{{4,256},{0,0}},{{5,2},{1,1}},{{5,8},{0,1}},{{5,10},{1,1}},{{5,16},{0,1}},{{5,18},{2,1}},{{5,24},{0,1}},{{5,32},{0,1}},{{5,34},{1,1}},{{5,40},{0,1}},{{5,48},{0,1}},{{5,64},{0,1}},{{5,66},{2,2}},{{5,72},{0,1}},{{5,80},{0,1}},{{5,96},{0,1}},{{5,128},{0,1}},{{5,130},{1,1}},{{5,136},{0,1}},{{5,144},{0,1}},{{5,160},{0,1}},{{5,192},{0,1}},{{5,256},{0,1}},{{5,258},{2,0}},{{5,264},{0,1}},{{5,272},{0,1}},{{5,288},{0,1}},{{5,320},{0,1}},{{5,384},{0,1}},{{6,1},{1,0}},{{6,8},{0,0}},{{6,9},{1,1}},{{6,16},{0,0}},{{6,17},{2,2}},{{6,24},{0,0}},{{6,32},{0,0}},{{6,33},{1,1}},{{6,40},{0,0}},{{6,48},{0,0}},{{6,64},{0,0}},{{6,65},{1,0}},{{6,72},{0,0}},{{6,80},{0,0}},{{6,96},{0,0}},{{6,128},{0,0}},{{6,129},{2,0}},
 {{6,136},{0,0}},{{6,144},{0,0}},{{6,160},{0,0}},{{6,192},{0,0}},{{6,256},{0,0}},{{6,257},{1,1}},{{6,264},{0,0}},{{6,272},{0,0}},{{6,288},{0,0}},{{6,320},{0,0}},{{6,384},{0,0}},{{8,0},{0,0}},{{8,1},{0,1}},{{8,2},{0,0}},{{8,4},{0,0}},{{8,16},{0,0}},{{8,32},{0,0}},{{8,64},{0,2}},{{8,128},{1,1}},{{8,256},{2,0}},{{9,2},{0,2}},{{9,4},{0,1}},{{9,6},{1,1}},{{9,16},{2,0}},{{9,18},{2,0}},{{9,20},{2,0}},{{9,32},{2,0}},{{9,34},{1,1}},{{9,36},{2,0}},{{9,48},{0,1}},{{9,64},{2,1}},{{9,66},{1,1}},{{9,68},{1,1}},{{9,80},{0,2}},{{9,96},{0,2}},{{9,128},{2,0}},{{9,130},{1,1}},{{9,132},{1,1}},{{9,144},{0,1}},{{9,160},{0,1}},{{9,192},{0,1}},{{9,256},{2,0}},{{9,258},{1,1}},{{9,260},{1,2}},{{9,272},{0,1}},{{9,288},{0,2}},{{9,320},{0,1}},{{9,384},{2,0}},{{10,1},{1,1}},{{10,4},{2,2}},{{10,5},{1,1}},{{10,16},{0,0}},{{10,17},{2,2}},{{10,20},{2,0}},{{10,32},{0,0}},{{10,33},{0,2}},{{10,36},{2,2}},{{10,48},{0,0}},{{10,64},{2,2}},{{10,65},{1,1}},{{10,68},{1,1}},{{10,80},{0,2}},{{10,96},{0,2}},{{10,128},{0,0}},{{10,129},{1,1}},{{10,132},{1,1}},{{10,144},{0,0}},{{10,160},{0,0}},{{10,192},{2,2}},{{10,256},{0,2}},{{10,257},{1,1}},{{10,260},{0,0}},{{10,272},{0,0}},{{10,288},{0,2}},{{10,320},{0,0}},{{10,384},{2,0}},{{11,20},{2,0}},{{11,36},{2,0}},{{11,48},{0,2}},{{11,52},{2,0}},{{11,68},{1,1}},{{11,80},{0,2}},{{11,96},{0,2}},{{11,100},{1,1}},{{11,112},{0,2}},{{11,132},{2,0}},{{11,144},{0,2}},{{11,148},{2,0}},{{11,160},{0,2}},{{11,164},{2,0}},{{11,176},{0,2}},{{11,192},{0,2}},{{11,196},{1,1}},{{11,208},{0,2}},{{11,224},{0,2}},{{11,260},{1,2}},{{11,272},{0,2}},{{11,276},{2,0}},{{11,288},{0,2}},{{11,304},{0,2}},
@@ -211,44 +232,6 @@ static const std::map<std::pair<short, short>, Coords> BEST_MOVES = {
 {{389,50},{1,0}},{{389,74},{1,1}},{{389,82},{1,2}},{{389,88},{1,2}},{{389,90},{1,2}},{{389,98},{1,1}},{{389,104},{1,1}},{{389,106},{1,1}},{{389,112},{1,0}},{{389,114},{1,0}},{{390,25},{1,2}},{{390,41},{1,1}},{{390,49},{1,0}},{{390,81},{1,0}},{{390,88},{0,0}},{{390,97},{1,0}},{{390,104},{0,0}},{{390,112},{1,0}},{{390,113},{1,0}},{{392,3},{0,2}},{{392,5},{0,1}},{{392,6},{0,0}},{{392,17},{2,0}},{{392,18},{2,0}},{{392,19},{0,2}},{{392,20},{2,0}},{{392,21},{2,0}},{{392,22},{2,0}},{{392,33},{2,0}},{{392,34},{2,0}},{{392,35},{2,0}},{{392,36},{0,0}},{{392,37},{0,1}},{{392,38},{0,0}},{{392,48},{2,0}},{{392,49},{2,0}},{{392,50},{2,0}},{{392,52},{2,0}},{{392,65},{0,2}},{{392,66},{0,2}},{{392,67},{0,2}},{{392,68},{0,0}},{{392,69},{0,1}},{{392,70},{0,0}},{{392,80},{0,2}},{{392,81},{0,2}},{{392,82},{0,2}},{{392,96},{0,0}},{{392,97},{0,1}},{{392,98},{0,0}},{{392,100},{1,1}},{{392,112},{0,2}},{{393,22},{2,0}},{{393,38},{1,1}},{{393,50},{2,0}},{{393,52},{2,0}},{{393,54},{2,0}},{{393,70},{1,1}},{{393,82},{0,2}},{{393,98},{1,1}},{{393,100},{1,1}},{{393,102},{1,1}},{{393,112},{0,2}},{{393,114},{0,2}},{{394,21},{2,0}},{{394,37},{1,1}},{{394,49},{2,0}},{{394,52},{2,0}},{{394,53},{2,0}},{{394,69},{1,1}},{{394,81},{0,2}},{{394,97},{1,1}},{{394,100},{1,1}},{{394,101},{1,1}},{{394,112},{0,2}},{{394,113},{0,2}},{{396,19},{1,2}},{{396,35},{2,0}},{{396,49},{2,0}},{{396,50},{2,0}},{{396,51},{2,0}},{{396,67},{1,2}},{{396,81},{1,2}},{{396,82},{1,2}},{{396,83},{1,2}},{{396,97},{0,1}},{{396,98},{0,0}},{{396,99},{1,1}},{{396,112},{0,0}},{{396,113},{0,1}},{{396,114},{0,0}},{{400,3},{0,2}},{{400,5},{0,1}},{{400,6},{0,0}},{{400,9},{2,0}},{{400,10},{0,0}},{{400,11},{2,0}},{{400,12},{0,0}},{{400,13},{0,1}},{{400,14},{0,0}},
 {{400,33},{0,1}},{{400,34},{0,0}},{{400,35},{2,0}},{{400,36},{0,0}},{{400,37},{0,1}},{{400,38},{0,0}},{{400,40},{0,0}},{{400,41},{0,1}},{{400,42},{0,0}},{{400,44},{0,0}},{{400,65},{0,1}},{{400,66},{0,0}},{{400,67},{0,2}},{{400,68},{0,0}},{{400,69},{0,1}},{{400,70},{0,0}},{{400,72},{0,0}},{{400,74},{0,0}},{{400,76},{0,0}},{{400,96},{0,0}},{{400,97},{0,1}},{{400,98},{0,0}},{{400,100},{0,0}},{{400,104},{0,0}},{{404,11},{2,0}},{{404,35},{2,0}},{{404,41},{2,0}},{{404,42},{0,0}},{{404,43},{2,0}},{{404,67},{1,0}},{{404,74},{0,0}},{{404,97},{1,0}},{{404,98},{0,0}},{{404,99},{1,0}},{{404,104},{0,0}},{{404,106},{0,0}},{{408,35},{0,2}},{{408,37},{0,1}},{{408,38},{0,0}},{{408,67},{0,2}},{{408,69},{0,1}},{{408,70},{0,0}},{{408,97},{0,1}},{{408,98},{0,0}},{{408,99},{0,2}},{{408,100},{0,0}},{{408,101},{0,1}},{{408,102},{0,0}},{{416,3},{0,2}},{{416,5},{0,1}},{{416,6},{0,0}},{{416,9},{2,0}},{{416,10},{0,0}},{{416,11},{0,2}},{{416,12},{2,0}},{{416,13},{2,0}},{{416,14},{0,0}},{{416,17},{0,1}},{{416,18},{0,0}},{{416,19},{0,2}},{{416,20},{2,0}},{{416,21},{2,0}},{{416,22},{2,0}},{{416,24},{0,0}},{{416,25},{0,2}},{{416,26},{0,0}},{{416,28},{2,0}},{{416,65},{0,2}},{{416,66},{0,2}},{{416,67},{0,2}},{{416,68},{0,0}},{{416,69},{0,1}},{{416,70},{0,0}},{{416,72},{0,0}},{{416,74},{0,0}},{{416,76},{0,0}},{{416,80},{0,2}},{{416,81},{0,2}},{{416,82},{0,2}},{{416,88},{0,2}},{{417,14},{1,1}},{{417,22},{2,0}},{{417,26},{0,2}},{{417,28},{2,0}},{{417,30},{2,0}},{{417,70},{1,1}},{{417,74},{0,2}},{{417,76},{1,1}},{{417,78},{1,1}},{{417,82},{0,2}},{{417,88},{0,2}},{{417,90},{0,2}},{{418,13},{2,0}},{{418,21},{2,0}},{{418,25},{2,0}},{{418,28},{2,0}},{{418,29},{2,0}},{{418,69},{1,0}},{{418,76},{0,0}},{{418,81},{0,2}},
 {{418,88},{0,0}},{{424,19},{0,2}},{{424,21},{0,1}},{{424,22},{0,0}},{{424,67},{0,2}},{{424,69},{0,1}},{{424,70},{0,0}},{{424,81},{0,2}},{{424,82},{0,2}},{{424,83},{0,2}},{{432,11},{0,2}},{{432,13},{0,1}},{{432,14},{0,0}},{{432,67},{0,2}},{{432,69},{0,1}},{{432,70},{0,0}},{{432,74},{0,0}},{{432,76},{0,0}},{{432,78},{0,0}}
-};
-
-typedef int Coord;
-const Coord INVALID_COORD = -1;
-
-/// Y is row
-/// X is column
-class Coords {
-public:
-	Coords();
-	Coords(const Coords& rhs);
-	Coords(Coord rowCoord, Coord colCoord);
-
-	Coord getRowCoord() const { return rowCoord; }
-	Coord getColCoord() const { return colCoord; }
-
-	void setRowCoord(Coord rowCoord) { this->rowCoord = rowCoord; }
-	void setColCoord(Coord colCoord) { this->colCoord = colCoord; }
-
-	Coords& operator=(const Coords& rhs);
-	bool operator==(const Coords& rhs);
-	Coords operator+(const Coords& rhs);
-	Coords& operator+=(const Coords& rhs);
-	Coords operator-(const Coords& rhs);
-	Coords& operator-=(const Coords& rhs);
-	Coords operator*(const Coords& rhs);
-	Coords& operator*=(const Coords& rhs);
-
-	bool isValid() const;
-
-	Coord distance(const Coords& coords) const;
-	void roundCoords();
-
-	friend Coord distance(const Coords& point0, const Coords& point1);
-	friend ostream& operator<<(ostream& stream, const Coords& coords);
-private:
-	Coord rowCoord;
-	Coord colCoord;
 };
 
 Coords::Coords() :
@@ -370,7 +353,6 @@ Coords DIRECTIONS[DIRECTIONS_COUNT] = {
 	Coords(-1, -1)  // NW
 };
 
-/// Represents the board with the played turns
 class Board {
 public:
 	Board();
@@ -384,98 +366,34 @@ public:
 	int getPlayer() const;
 	Coords getMove() const;
 
-	/// Initialize the board empty squares
 	void init();
-
-	/// Copy rhs board into this board
 	void copy(const Board& rhs);
-
-	/// Determine the mini board index by the given global position
-	/// @param[in] pos the position on the big board
-	/// @return the index of the mini board in the big board
 	int getMiniBoardIdx(const Coords pos) const;
-
-	/// Determine the mini board inner index by the given global position
-	/// @param[in] pos the position on the big board
-	/// @return the inner index of the mini board in the big board
 	short getMiniBoardInnerIdx(const Coords pos) const;
-
-	/// Determine the gloabal board postion by given the mini board index and inner mini board index
-	/// @param[in] miniBoardIdx the index ofthe miniboard
-	/// @param[in] miniBoardInnerIdx the index of the element in the mini board
-	/// @return the position in the global big board
 	Coords getBigBoardPosition(const int miniBoardIdx, const int miniBoardInnerIdx) const;
-
-	/// Return the player index, played in the given position
 	int getPlayerIdx(const Coords pos) const;
-
-	/// Set the given player index in the given position
 	void setPlayerIdx(const Coords pos, const int playerIdx);
-
-	/// Check if the given move could be performed
-	/// @param[in] move the coordinates on which the player plays
-	/// @param[in] previousMove the coordinates on which the last player played
-	/// return true if the given move could be performed
 	bool validMove(const Coords move, const Coords previousMove);
-
-	/// Appply the given move for the given player and chage the player
-	/// @param[in] move the coordinates on which the player plays
 	bool playMove(const Coords move);
-
-	/// Return list of all playable coordinates
 	vector<Coords> getAllPossibleMoves() const;
-
-	/// Fill all possible moves in the given array
-	/// @param[in] allMoves the array tp be filled
-	/// @param[in] allMovesCount the count to be set for all moves
 	void getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const;
-
-	/// Toggle player
 	int togglePlayer(const int playerToToggle) const;
-
-	/// Play game with random moves until end of the game is reached
-	/// @param[in] allMoves the array tp be filled
-	/// @param[in] allMovesCount the count to be set for all moves
-	/// @return the result of the game
 	int simulateRandomGame(Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 
 	Board& operator=(const Board& board);
 	friend ostream& operator<<(std::ostream& stream, const Board& board);
 
-	/// Debug the Board online
 	void debug() const;
 
 private:
-	/// Return possible moves for the given mini board
 	vector<Coords> getAllPossibleMovesForMiniBoard(const int miniBoardIdx) const;
-
-	/// Fill all possible moves, for the given board, in the given array
-	/// @param[in] miniBoardIdx the moves for the this board
-	/// @param[in] allMoves the array tp be filled
-	/// @param[in] allMovesCount the count to be set for all moves
 	void getAllPossibleMovesForMiniBoard(const int miniBoardIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) const;
-
-	/// Return possible moves in all mini boards
 	vector<Coords> getAllPossibleMovesForAllMiniBoards() const;
-
-	/// Fill all possible moves, for the big board, in the given array
-	/// @param[in] allMoves the array tp be filled
-	/// @param[in] allMovesCount the count to be set for all moves
 	void getAllPossibleMovesForAllMiniBoards(Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) const;
-
-	/// Return true if the player wins on the given board
 	bool checkForWin(const short boardToCheck) const;
-
-	/// Return true if the given board is full
 	bool boardFull(const short boardToCheck) const;
-
-	/// Return true if the given mini board is playable
 	bool playableMiniBoard(const int miniBoardIdx) const;
-
-	/// Detemine which player wins when the board is full
 	BoardStatus resolveDraw() const;
-
-	/// Return true if the mini board could be used for play
 	bool miniBoardPlayable(const int miniBoardIdx) const;
 
 	short board[SQUARE_TYPES][BOARD_DIM]; /// Board for each player, each short representa a tictactoe board
@@ -891,24 +809,18 @@ void State::debug() const {
 	cerr << "winScore: " << winScore << endl;
 }
 
-/// Represents a Node in the MCST
 class Node {
 public:
 	Node(const State& state, const int parentIdx);
 
 	const State& getState() const { return state; }
 	State& getState() { return state; }
-	//const vector<int>& getChildren() const { return children; }
 	int getFirstChild() const { return firstChild; }
 	int getParentIdx() const { return parentIdx; }
 
-	/// Add child node wiht the given index
 	void addChild(const int childIdxNode);
-
-	/// Return the count of the children for this node
 	int getChildrenCount() const;
 
-	/// Debug the Node online
 	void debug() const;
 
 private:
@@ -942,29 +854,15 @@ void Node::debug() const {
 	state.debug();
 }
 
-/// Represent the search tree
 class Tree {
 public:
 	int getNodesCount() const { return static_cast<int>(nodes.size()); }
-
-	/// Initialize the tree with single root node
-	/// @param[in] initialBoard the starting board
 	void init(const Board& initialBoard);
-
-	/// Return the node with the given index
 	const Node& getNode(const int nodeIdx) const { return nodes[nodeIdx]; }
 	Node& getNode(const int nodeIdx) { return nodes[nodeIdx]; }
-
-	/// Set the starting player for the game
 	void setRootPlayer(const int playerIdx);
-
-	/// Add the given node to the tree and return its index
 	int addNode(const Node& node);
-
-	/// Print the tree to file for easy debug
 	void print() const;
-
-	/// Debug the tree online
 	void debug() const;
 
 private:
@@ -1057,7 +955,6 @@ void Tree::dfsPrint(const int depth, const int nodeToExploreIdx, const bool last
 	treeString += "\n";
 }
 
-/// Run MonteCarlo tree search simulation to find the best move for the current state of the board
 class MonteCarloTreeSearch {
 public:
 	MonteCarloTreeSearch(Board& initialBoard);
@@ -1069,61 +966,23 @@ public:
 	long long getTimeLimit() const { return timeLimit; }
 	int getNodesCount() const { return searchTree.getNodesCount(); }
 
-	/// Find the best move
-	/// @param[in] turnIdx the turn index
 	void solve(const int turnIdx);
-
-	/// Set the starting player for the game
 	void setRootPlayer(const int playerIdx);
-
-	/// Print the search tree to file for easy visual debug
 	void printSearchTree() const;
 
-	/// Debug the tree online
 	void debug() const;
 
 private:
-	/// Starting form the current turn root, select most promising child node until a leaf node is reached
-	/// @return the idx of the selected node
 	int selectPromisingNode() const;
-
-	/// Expand the search tree with adding all possible child nodes to the selected node
-	/// @param[in] selectedNode the node to expand
 	void expansion(const int selectedNode);
-
-	/// Expand the search tree with adding all possible child nodes to the selected node
-	/// @param[in] selectedNode the node to expand
-	/// @param[in] allMoves the all moves array to reuse
-	/// @param[in] allMovesCount allMovesCOunt to reuse
 	void expansion(const int selectedNode, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
-
-	/// Simulate game with random moves until the end
-	/// @pram[in] nodeToExploreIdx the node for which to simulate the game
-	/// @param[in] allMoves the all moves array to reuse
-	/// @param[in] allMovesCount allMovesCOunt to reuse
-	/// @return the idx of the player who wins, -1 if draw
 	int simulation(const int nodeToExploreIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
-
-	/// Back propagate the simulation result through the parents until the root
-	/// @param[in] nodeToExploreIdx the explored node
-	/// @param[in] simulationResult the result form the simulation step
 	void backPropagation(const int nodeToExploreIdx, const int simulationResult);
-
-	/// Calculate the upper confidence bound for the given parmeters
-	/// @param[in] nodeWinScore the score so far for the node
-	/// @param[in] parentVisits the number of visits for the parent
-	/// @param[in] nodeVisit the number of visits for the node
-	/// @return the UCT score
 	double uct(const double nodeWinScore, const int parentVisits, const int nodeVisit) const;
-
-	/// Start the search
-	/// @param[in] turnIdx the turn index
 	void searchBegin(const int turnIdx);
-
-	/// Conclude the search choosing the best move and updating the root
-	/// @param[in] turnIdx the turn index
 	void searchEnd(const int turnIdx);
 
+private:
 	Tree searchTree; ///< The actual search tree for the algotrithm
 	Coords opponentMove; ///< The last move for the opponent
 	Coords bestMove; ///< The best move chosen from the simulation
@@ -1362,7 +1221,6 @@ public:
 	void debug() const;
 
 private:
-	// Game specific members
 	Board board; ///< The board on which the game is played
 	MonteCarloTreeSearch monteCarloTreeSearch; ///< The AI algorithm
 	Coords opponentMove; ///< The coordinates on which the opponent plays
