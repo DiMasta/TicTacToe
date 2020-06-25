@@ -1,10 +1,11 @@
-//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
-//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
-//#pragma GCC target("avx")  //Enable AVX
-//#include <x86intrin.h> //AVX/SSE Extensions
-//#include <bits/stdc++.h> //All main STD libraries
+#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+#pragma GCC target("avx")  //Enable AVX
+#include <x86intrin.h> //AVX/SSE Extensions
+#include <bits/stdc++.h> //All main STD libraries
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <map>
@@ -211,7 +212,7 @@ public:
 	void setPlayerIdx(const Coords pos, const int playerIdx);
 	bool validMove(const Coords move, const Coords previousMove); //!
 	bool playMove(const Coords move);
-	Coords getBestMove() const;
+	Coords getBestMoveForBoard() const;
 	vector<Coords> getAllPossibleMoves() const;
 	void getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const;
 	int togglePlayer(const int playerToToggle) const;
@@ -228,6 +229,7 @@ private:
 	bool playableMiniBoard(const int miniBoardIdx) const;
 	BoardStatus resolveDraw() const;
 	bool miniBoardPlayable(const int miniBoardIdx) const;
+
 	short board[SQUARE_TYPES][BOARD_DIM];
 	short bigBoard[SQUARE_TYPES];
 	unsigned short flags;
@@ -408,14 +410,79 @@ bool Board::playMove(const Coords move) {
 	return movePlayed;
 }
 
-Coords Board::getBestMove() const {
+Coords Board::getBestMoveForBoard() const {
+	Coords bestMove;
 	const int activeMiniBoardIdx = getMiniBoardInnerIdx(getMove());
 
-	// Check if the mini board is active
-	// If so get the best move for it
-	// If not get the best move for the best mini board based on the big board
+	if (playableMiniBoard(activeMiniBoardIdx)) {
+		pair<short, short> boardPair{ board[0][activeMiniBoardIdx], board[1][activeMiniBoardIdx] };
+		if (BEST_MOVES.end() == BEST_MOVES.find(boardPair)) {
+			boardPair = { board[1][activeMiniBoardIdx], board[0][activeMiniBoardIdx] };
+		}
 
-	return Coords();
+		char bestMoveIdx = 0;
+		if (BEST_MOVES.end() == BEST_MOVES.find(boardPair)) {
+			for (char squareIdx = 0; squareIdx < BOARD_DIM; ++squareIdx) {
+				const short squareMask = 1 << squareIdx;
+				if (!(board[0][activeMiniBoardIdx] & squareMask) && !(board[1][activeMiniBoardIdx] & squareMask)) {
+					bestMoveIdx = squareIdx;
+				}
+			}
+		}
+		else {
+			bestMoveIdx = BEST_MOVES.at(boardPair);
+		}
+
+		bestMove = getBigBoardPosition(activeMiniBoardIdx, bestMoveIdx);
+	}
+	else {
+		pair<short, short> bigBoardPair{ bigBoard[0], bigBoard[1] };
+		if (BEST_MOVES.end() == BEST_MOVES.find(bigBoardPair)) {
+			bigBoardPair = { bigBoard[1], bigBoard[0] };
+		}
+
+		char bestMiniBoardIdx = 0;
+		if (BEST_MOVES.end() == BEST_MOVES.find(bigBoardPair)) {
+			for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+				if (playableMiniBoard(miniBoardIdx)) {
+					bestMiniBoardIdx = miniBoardIdx;
+				}
+			}
+		}
+		else {
+			bestMiniBoardIdx = BEST_MOVES.at(bigBoardPair);
+		}
+
+		if (boardFull(board[0][bestMiniBoardIdx] | board[1][bestMiniBoardIdx])) {
+			for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+				if (playableMiniBoard(miniBoardIdx)) {
+					bestMiniBoardIdx = miniBoardIdx;
+				}
+			}
+		}
+
+		pair<short, short> boardPair{ board[0][bestMiniBoardIdx], board[1][bestMiniBoardIdx] };
+		if (BEST_MOVES.end() == BEST_MOVES.find(boardPair)) {
+			boardPair = { board[1][bestMiniBoardIdx], board[0][bestMiniBoardIdx] };
+		}
+
+		char bestMoveIdx = 0;
+		if (BEST_MOVES.end() == BEST_MOVES.find(boardPair)) {
+			for (char squareIdx = 0; squareIdx < BOARD_DIM; ++squareIdx) {
+				const short squareMask = 1 << squareIdx;
+				if (!(board[0][bestMiniBoardIdx] & squareMask) && !(board[1][bestMiniBoardIdx] & squareMask)) {
+					bestMoveIdx = squareIdx;
+				}
+			}
+		}
+		else {
+			bestMoveIdx = BEST_MOVES.at(boardPair);
+		}
+
+		bestMove = getBigBoardPosition(bestMiniBoardIdx, bestMoveIdx);
+	}
+
+	return bestMove;
 }
 
 vector<Coords> Board::getAllPossibleMoves() const {
@@ -430,10 +497,14 @@ vector<Coords> Board::getAllPossibleMoves() const {
 }
 
 int Board::simulateRandomGame(Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) {
+	//cerr << *this << endl;
+
 	while (BoardStatus::IN_PROGRESS == getStatus()) {
 		//getAllPossibleMoves(allMoves, allMovesCount);
 		//playMove(allMoves[fast_rand() % allMovesCount]);
-		playMove(getBestMove());
+		playMove(getBestMoveForBoard());
+
+		//cerr << *this << endl;
 	}
 	return BoardStatus::I_WON == getStatus() ? MY_PLAYER_IDX : OPPONENT_PLAYER_IDX;
 }
