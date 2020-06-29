@@ -684,7 +684,7 @@ public:
 	int getMiniBoardIdx(const Coords pos) const;
 	Coords getBigBoardPosition(const int miniBoardIdx, const int miniBoardInnerIdx) const;
 	int getPlayerIdx(const Coords pos) const;
-	void setPlayerIdx(const Coords pos, const int playerIdx);
+	void setPlayerIdx(const Coords pos, const short miniBoardIdx, const int playerIdx);
 	bool playMove(const Coords move);
 	Coords getRandomMove() const;
 	vector<Coords> getAllPossibleMoves() const;
@@ -822,9 +822,7 @@ int Board::getPlayerIdx(const Coords pos) const {
 	return playerIdx;
 }
 
-void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
-	//const int miniBoardIdx = getMiniBoardIdx(pos);
-	const short miniBoardIdx = pos.getCurrMiniBoard();
+void Board::setPlayerIdx(const Coords pos, const short miniBoardIdx, const int playerIdx) {
 	const short miniBoardInnerIdx = pos.getNextMiniBoard();
 	board[playerIdx][miniBoardIdx] |= 1 << miniBoardInnerIdx;
 }
@@ -832,11 +830,10 @@ void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
 bool Board::playMove(const Coords move) {
 	bool movePlayed = false;
 	const int player = getPlayer();
+	const short miniBoardIdx = move.getCurrMiniBoard();
 
 	setMove(move);
-	setPlayerIdx(move, player);
-	//const int miniBoardIdx = getMiniBoardIdx(move);
-	const short miniBoardIdx = move.getCurrMiniBoard();
+	setPlayerIdx(move, miniBoardIdx, player);
 	const short miniBoard = board[player][miniBoardIdx];
 	if (WIN_BOARDS[miniBoard]) {
 		bigBoard[player] |= (1 << miniBoardIdx);
@@ -973,6 +970,7 @@ bool Board::playableMiniBoard(const int miniBoardIdx) const {
 	const short miniBoardMask = 1 << miniBoardIdx;
 	const bool boardWon = (miniBoardMask & bigBoard[MY_PLAYER_IDX]) || (miniBoardMask & bigBoard[OPPONENT_PLAYER_IDX]);
 	const bool boardDraw = miniBoardMask & bigBoardDraw;
+
 	return !boardWon && !boardDraw;
 }
 
