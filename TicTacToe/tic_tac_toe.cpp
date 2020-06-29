@@ -565,89 +565,8 @@ vector<int> ALL_MOVES[ALL_POSSOBLE_FILLED_BOARDS] = {
 	{0}
 };
 
-short nextMiniBoard[BOARD_DIM][BOARD_DIM] = {
-	0,
-	1,
-	2,
-	0,
-	1,
-	2,
-	0,
-	1,
-	2,
-	3,
-	4,
-	5,
-	3,
-	4,
-	5,
-	3,
-	4,
-	5,
-	6,
-	7,
-	8,
-	6,
-	7,
-	8,
-	6,
-	7,
-	8,
-	0,
-	1,
-	2,
-	0,
-	1,
-	2,
-	0,
-	1,
-	2,
-	3,
-	4,
-	5,
-	3,
-	4,
-	5,
-	3,
-	4,
-	5,
-	6,
-	7,
-	8,
-	6,
-	7,
-	8,
-	6,
-	7,
-	8,
-	0,
-	1,
-	2,
-	0,
-	1,
-	2,
-	0,
-	1,
-	2,
-	3,
-	4,
-	5,
-	3,
-	4,
-	5,
-	3,
-	4,
-	5,
-	6,
-	7,
-	8,
-	6,
-	7,
-	8,
-	6,
-	7,
-	8
-};
+short NEXT_MINIBOARD[BOARD_DIM][BOARD_DIM] = { 0,1,2,0,1,2,0,1,2,3,4,5,3,4,5,3,4,5,6,7,8,6,7,8,6,7,8,0,1,2,0,1,2,0,1,2,3,4,5,3,4,5,3,4,5,6,7,8,6,7,8,6,7,8,0,1,2,0,1,2,0,1,2,3,4,5,3,4,5,3,4,5,6,7,8,6,7,8,6,7,8 };
+short CURR_MINIBOARD[BOARD_DIM][BOARD_DIM] = { 0,0,0,1,1,1,2,2,2,0,0,0,1,1,1,2,2,2,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,3,3,3,4,4,4,5,5,5,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,6,6,6,7,7,7,8,8,8,6,6,6,7,7,7,8,8,8 };
 
 bool WIN_BOARDS[ALL_POSSOBLE_FILLED_BOARDS] = {
 	0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,
@@ -655,7 +574,7 @@ bool WIN_BOARDS[ALL_POSSOBLE_FILLED_BOARDS] = {
 	0,1,0,1,0,1,0,1,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,
 	1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
 	0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,
+	1,1,1,1,1,1,1,1,1,1,1
 };
 
 enum class BoardStatus {
@@ -701,7 +620,11 @@ public:
 	friend ostream& operator<<(ostream& stream, const Coords& coords);
 
 	short getNextMiniBoard() const {
-		return nextMiniBoard[rowCoord][colCoord];
+		return NEXT_MINIBOARD[rowCoord][colCoord];
+	}
+
+	short getCurrMiniBoard() const {
+		return CURR_MINIBOARD[rowCoord][colCoord];
 	}
 
 private:
@@ -885,7 +808,7 @@ Coords Board::getBigBoardPosition(const int miniBoardIdx, const int miniBoardInn
 
 int Board::getPlayerIdx(const Coords pos) const {
 	int playerIdx = INVALID_IDX;
-	const int miniBoardIdx = getMiniBoardIdx(pos);
+	const short miniBoardIdx = pos.getCurrMiniBoard();
 	const short miniBoardInnerIdx = pos.getNextMiniBoard();
 	const short miniBoardXes = board[0][miniBoardIdx];
 	const short miniBoardOs = board[1][miniBoardIdx];
@@ -900,7 +823,8 @@ int Board::getPlayerIdx(const Coords pos) const {
 }
 
 void Board::setPlayerIdx(const Coords pos, const int playerIdx) {
-	const int miniBoardIdx = getMiniBoardIdx(pos);
+	//const int miniBoardIdx = getMiniBoardIdx(pos);
+	const short miniBoardIdx = pos.getCurrMiniBoard();
 	const short miniBoardInnerIdx = pos.getNextMiniBoard();
 	board[playerIdx][miniBoardIdx] |= 1 << miniBoardInnerIdx;
 }
@@ -911,7 +835,8 @@ bool Board::playMove(const Coords move) {
 
 	setMove(move);
 	setPlayerIdx(move, player);
-	const int miniBoardIdx = getMiniBoardIdx(move);
+	//const int miniBoardIdx = getMiniBoardIdx(move);
+	const short miniBoardIdx = move.getCurrMiniBoard();
 	const short miniBoard = board[player][miniBoardIdx];
 	if (WIN_BOARDS[miniBoard]) {
 		bigBoard[player] |= (1 << miniBoardIdx);
@@ -1041,7 +966,7 @@ void Board::getAllPossibleMovesForAllMiniBoards(Coords (&allMoves)[ALL_SQUARES],
 }
 
 bool Board::boardFull(const short boardToCheck) const {
-	return FULL_BOARD_MASK == (FULL_BOARD_MASK & boardToCheck);
+	return FULL_BOARD_MASK == boardToCheck;
 }
 
 bool Board::playableMiniBoard(const int miniBoardIdx) const {
