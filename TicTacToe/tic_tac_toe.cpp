@@ -36,9 +36,9 @@ static constexpr char OPPONENT_PLAYER_CHAR = 'O';
 static constexpr char EMPTY_CHAR = '_';
 static constexpr size_t NODES_TO_RESERVE = 8'000'000;
 static constexpr long long FIRST_TURN_MS = 1'000;
-static constexpr long long TURN_MS = 112;
+static constexpr long long TURN_MS = 110;
 static constexpr long long BIAS_MS = 2;
-static constexpr double WIN_VALUE = 10.0;
+static constexpr float WIN_VALUE = 10.0;
 static constexpr unsigned short PLAYER_FLAG		= 0b0000'0000'0000'0001;
 static constexpr unsigned short STATUS_MASK		= 0b0000'0000'0000'0110;
 static constexpr unsigned short MOVE_ROW_MASK	= 0b0000'0000'0111'1000;
@@ -992,21 +992,21 @@ ostream& operator<<(std::ostream& stream, const Board& board) {
 
 class State {
 public:
-	State(const Board& board, const int visits, const double winScore);
+	State(const Board& board, const int visits, const float winScore);
 	void setBoard(const Board& board) { this->board = board; }
 	void setVisits(const int visits) { this->visits = visits; }
-	void setWinScore(const double winScore) { this->winScore = winScore; }
+	void setWinScore(const float winScore) { this->winScore = winScore; }
 	const Board& getBoard() const { return board; }
 	Board& getBoard() { return board; }
 	int getVisits() const { return visits; }
-	double getWinScore() const { return winScore; }
+	float getWinScore() const { return winScore; }
 private:
 	Board board;
 	int visits;
-	double winScore;
+	float winScore;
 };
 
-State::State(const Board& board, const int visits, const double winScore) :
+State::State(const Board& board, const int visits, const float winScore) :
 	board{ board },
 	visits{ visits },
 	winScore{ winScore }
@@ -1145,7 +1145,7 @@ private:
 	void expansion(const int selectedNode, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 	int simulation(const int nodeToExploreIdx);
 	void backPropagation(const int nodeToExploreIdx, const int simulationResult);
-	double uct(const double nodeWinScore, const int parentVisits, const int nodeVisit) const;
+	float uct(const float nodeWinScore, const int parentVisits, const int nodeVisit) const;
 	void searchBegin(const int turnIdx);
 	void searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 
@@ -1155,8 +1155,8 @@ private:
 	Coords bestMove;
 	Board& initialBoard;
 	long long timeLimit;
-	double sqrtOf2;
-	double maxDouble;
+	float sqrtOf2;
+	float maxDouble;
 	int turnRootNodeIdx;
 };
 
@@ -1165,8 +1165,8 @@ MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
 	timeLimit{ 0 },
 	turnRootNodeIdx{ 0 }
 {
-	sqrtOf2 = sqrt(2.0);
-	maxDouble = numeric_limits<double>::max();
+	sqrtOf2 = sqrtf(2.f);
+	maxDouble = numeric_limits<float>::max();
 	searchTree.init(initialBoard);
 }
 
@@ -1176,7 +1176,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	Coords allMoves[ALL_SQUARES]; // Reuse array
 	int allMovesCount;
 
-	int iteration = 0;
+	//int iteration = 0;
 	chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
@@ -1192,11 +1192,11 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		int victoriousPlayer = simulation(selectedNodeIdx);
 		backPropagation(selectedNodeIdx, victoriousPlayer);
 
-		++iteration;
+		//++iteration;
 	}
 
-	cerr << "MCTS iterations: " << iteration << endl;
-	cerr << "Nodes count: " << searchTree.getNodesCount() << endl;
+	//cerr << "MCTS iterations: " << iteration << endl;
+	//cerr << "Nodes count: " << searchTree.getNodesCount() << endl;
 
 	searchEnd(turnIdx, allMoves, allMovesCount);
 }
@@ -1217,12 +1217,11 @@ int MonteCarloTreeSearch::selectPromisingNode() const {
 		const int parentVisits = currentNode.getState().getVisits();
 		const int nodeFirstChild = currentNode.getFirstChild();
 
-		double maxUCT = -1.0;
+		float maxUCT = -1.0;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeFirstChild + childIdx;
-			const Node& childNode = searchTree.getNode(childNodeIdx);
-			const State& childState = childNode.getState();
-			const double childUCT = uct(childState.getWinScore(), parentVisits, childState.getVisits());
+			const State& childState = searchTree.getNode(childNodeIdx).getState();
+			const float childUCT = uct(childState.getWinScore(), parentVisits, childState.getVisits());
 
 			if (childUCT > maxUCT) {
 				maxUCT = childUCT;
@@ -1274,14 +1273,14 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 	}
 }
 
-double MonteCarloTreeSearch::uct(const double nodeWinScore, const int parentVisits, const int nodeVisit) const {
-	double uctValue{ maxDouble };
+float MonteCarloTreeSearch::uct(const float nodeWinScore, const int parentVisits, const int nodeVisit) const {
+	float uctValue{ maxDouble };
 
 	if (nodeVisit > 0) {
-		const double nodeVisitDouble = static_cast<double>(nodeVisit);
-		const double totalVisitsDouble = static_cast<double>(parentVisits);
-		const double winVisitsRatio = nodeWinScore / nodeVisitDouble;
-		const double confidentRatio = sqrtOf2 * sqrt(log(totalVisitsDouble) / nodeVisitDouble);
+		const float nodeVisitDouble = static_cast<float>(nodeVisit);
+		const float totalVisitsDouble = static_cast<float>(parentVisits);
+		const float winVisitsRatio = nodeWinScore / nodeVisitDouble;
+		const float confidentRatio = sqrtOf2 * sqrt(log(totalVisitsDouble) / nodeVisitDouble);
 
 		uctValue = winVisitsRatio + confidentRatio;
 	}
@@ -1315,10 +1314,10 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 
 		if (rootChildrenCount > 0) {
 			int bestChildIdx = rootFirstChild; // Score for all children may be 0.0
-			double maxScore = 0.0;
+			float maxScore = 0.0;
 			for (int childIdx = 0; childIdx < rootChildrenCount; ++childIdx) {
 				const int childNodeIdx = rootFirstChild + childIdx;
-				const double childScore = searchTree.getNode(childNodeIdx).getState().getWinScore();
+				const float childScore = searchTree.getNode(childNodeIdx).getState().getWinScore();
 				if (childScore > maxScore) {
 					maxScore = childScore;
 					bestChildIdx = childNodeIdx;
