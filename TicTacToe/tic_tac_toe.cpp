@@ -1,8 +1,8 @@
-#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
-#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
-#pragma GCC target("avx")  //Enable AVX
-#include <x86intrin.h> //AVX/SSE Extensions
-#include <bits/stdc++.h> //All main STD libraries
+//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+//#pragma GCC target("avx")  //Enable AVX
+//#include <x86intrin.h> //AVX/SSE Extensions
+//#include <bits/stdc++.h> //All main STD libraries
 
 #include <iostream>
 #include <fstream>
@@ -673,32 +673,31 @@ class Board {
 public:
 	Board();
 	Board(const Board& rhs);
+
 	void setStatus(const BoardStatus status);
 	void setPlayer(const int player);
 	void setMove(const Coords move);
+
 	BoardStatus getStatus() const;
 	int getPlayer() const;
 	Coords getMove() const;
+
 	void init();
 	void copy(const Board& rhs);
-	int getMiniBoardIdx(const Coords pos) const;
 	Coords getBigBoardPosition(const int miniBoardIdx, const int miniBoardInnerIdx) const;
 	int getPlayerIdx(const Coords pos) const;
 	void setPlayerIdx(const Coords pos, const short miniBoardIdx, const int playerIdx);
 	void playMove(const Coords move);
 	Coords getRandomMove() const;
+	Coords getRandomMoveForBoard(const int miniBoardIdx, const short board) const;
 	void getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const;
 	int togglePlayer(const int playerToToggle) const;
 	int simulateRandomGame();
-	Board& operator=(const Board& board);
 	friend ostream& operator<<(std::ostream& stream, const Board& board);
-	Coords getRandomMoveForBoard(const int miniBoardIdx, const short board) const;
+
 private:
-	void getAllPossibleMovesForMiniBoard(const int miniBoardIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) const;
-	void getAllPossibleMovesForAllMiniBoards(Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) const;
-	bool playableMiniBoard(const int miniBoardIdx) const;
+	bool notPlayableMiniBoard(const int miniBoardIdx) const;
 	BoardStatus resolveDraw() const;
-	bool miniBoardPlayable(const int miniBoardIdx) const;
 
 	short board[SQUARE_TYPES][BOARD_DIM];
 	short bigBoard[SQUARE_TYPES];
@@ -785,13 +784,6 @@ void Board::copy(const Board& rhs) {
 	}
 }
 
-int Board::getMiniBoardIdx(const Coords pos) const {
-	const int bigBoardRowIdx = pos.getRowCoord() / TRIPLE;
-	const int bigBoardColIdx = pos.getColCoord() / TRIPLE;
-	const int miniBoardIdx = (bigBoardRowIdx * TRIPLE) + bigBoardColIdx;
-	return miniBoardIdx;
-}
-
 Coords Board::getBigBoardPosition(const int miniBoardIdx, const int miniBoardInnerIdx) const {
 	const int miniBoardRowIdx = miniBoardIdx / TRIPLE;
 	const int miniBoardColIdx = miniBoardIdx % TRIPLE;
@@ -850,7 +842,7 @@ void Board::playMove(const Coords move) {
 Coords Board::getRandomMove() const {
 	int miniBoardIdx = getMove().getNextMiniBoard();
 
-	if (!playableMiniBoard(miniBoardIdx)) {
+	if (notPlayableMiniBoard(miniBoardIdx)) {
 		const short boardMask = bigBoard[0] | bigBoard[1] | bigBoardDraw;
 		const size_t movesCount = ALL_MOVES[boardMask].size();
 		miniBoardIdx = ALL_MOVES[boardMask][fast_rand() % movesCount];
@@ -871,11 +863,6 @@ int Board::simulateRandomGame() {
 	return BoardStatus::I_WON == getStatus() ? MY_PLAYER_IDX : OPPONENT_PLAYER_IDX;
 }
 
-Board& Board::operator=(const Board& rhs) {
-	copy(rhs);
-	return *this;
-}
-
 Coords Board::getRandomMoveForBoard(const int miniBoardIdx, const short board) const {
 	const size_t movesCount = ALL_MOVES[board].size();
 
@@ -886,7 +873,7 @@ void Board::getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCo
 	allMovesCount = 0;
 
 	const int miniBoardIdx = getMove().getNextMiniBoard(); // Current moves detemine the next mini board
-	if (playableMiniBoard(miniBoardIdx)) {
+	if (!notPlayableMiniBoard(miniBoardIdx)) {
 		for (const int moveIdx : ALL_MOVES[board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx]]) {
 			allMoves[allMovesCount] = getBigBoardPosition(miniBoardIdx, moveIdx);
 			++allMovesCount;
@@ -906,33 +893,12 @@ int Board::togglePlayer(const int playerToToggle) const {
 	return PLAYER_TOGGLE - (playerToToggle + 1);
 }
 
-void Board::getAllPossibleMovesForMiniBoard(const int miniBoardIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) const {
-	if (playableMiniBoard(miniBoardIdx)) {
-		const short opponentBoard = board[OPPONENT_PLAYER_IDX][miniBoardIdx];
-		const short myBoard = board[MY_PLAYER_IDX][miniBoardIdx];
-
-		for (int sqIdx = 0; sqIdx < BOARD_DIM; ++sqIdx) {
-			const short squareMask = 1 << sqIdx;
-			if (!(opponentBoard & squareMask) && !(myBoard & squareMask)) {
-				allMoves[allMovesCount] = getBigBoardPosition(miniBoardIdx, sqIdx);
-				++allMovesCount;
-			}
-		}
-	}
-}
-
-void Board::getAllPossibleMovesForAllMiniBoards(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
-	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
-		getAllPossibleMovesForMiniBoard(miniBoardIdx, allMoves, allMovesCount);
-	}
-}
-
-bool Board::playableMiniBoard(const int miniBoardIdx) const {
+bool Board::notPlayableMiniBoard(const int miniBoardIdx) const {
 	const bool myPlayerWins = WIN_BOARDS[board[MY_PLAYER_IDX][miniBoardIdx]];
 	const bool opponentPlayerWins = WIN_BOARDS[board[OPPONENT_PLAYER_IDX][miniBoardIdx]];
 	const bool draw = FULL_BOARD_MASK == (board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx]);
 
-	return !myPlayerWins && !opponentPlayerWins && !draw;
+	return myPlayerWins || opponentPlayerWins || draw;
 }
 
 BoardStatus Board::resolveDraw() const {
@@ -940,21 +906,10 @@ BoardStatus Board::resolveDraw() const {
 	int mineMiniBoardsWon = 0;
 
 	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
-		if (bigBoard[OPPONENT_PLAYER_IDX] & (1 << miniBoardIdx)) {
-			++opponentMiniBoardsWon;
-		}
-		else {
-			++mineMiniBoardsWon;
-		}
+		opponentMiniBoardsWon	+= WIN_BOARDS[board[OPPONENT_PLAYER_IDX][miniBoardIdx]];
+		mineMiniBoardsWon		+= WIN_BOARDS[board[MY_PLAYER_IDX][miniBoardIdx]];
 	}
 	return (opponentMiniBoardsWon > mineMiniBoardsWon) ? BoardStatus::OPPONENT_WON : BoardStatus::I_WON;
-}
-
-bool Board::miniBoardPlayable(const int miniBoardIdx) const {
-	const bool iWonMiniBoard = bigBoard[MY_PLAYER_IDX] & (1 << miniBoardIdx);
-	const bool opponentWonMiniBoard = bigBoard[OPPONENT_PLAYER_IDX] & (1 << miniBoardIdx);
-	const bool drawnMiniBoard = bigBoardDraw & (1 << miniBoardIdx);
-	return !iWonMiniBoard && !opponentWonMiniBoard && !drawnMiniBoard;
 }
 
 ostream& operator<<(std::ostream& stream, const Board& board) {
@@ -1176,7 +1131,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	Coords allMoves[ALL_SQUARES]; // Reuse array
 	int allMovesCount;
 
-	//int iteration = 0;
+	int iteration = 0;
 	chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
@@ -1192,11 +1147,11 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		int victoriousPlayer = simulation(selectedNodeIdx);
 		backPropagation(selectedNodeIdx, victoriousPlayer);
 
-		//++iteration;
+		++iteration;
 	}
 
-	//cerr << "MCTS iterations: " << iteration << endl;
-	//cerr << "Nodes count: " << searchTree.getNodesCount() << endl;
+	cerr << "MCTS iterations: " << iteration << endl;
+	cerr << "Nodes count: " << searchTree.getNodesCount() << endl;
 
 	searchEnd(turnIdx, allMoves, allMovesCount);
 }
