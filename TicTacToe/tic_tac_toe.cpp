@@ -693,16 +693,17 @@ public:
 	void getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const;
 	int togglePlayer(const int playerToToggle) const;
 	int simulateRandomGame();
+
 	friend ostream& operator<<(std::ostream& stream, const Board& board);
 
 private:
 	bool notPlayableMiniBoard(const int miniBoardIdx) const;
 	BoardStatus resolveDraw() const;
+	void checkForTerminal(const int player);
+	short getBigBoardMask() const;
 
 	short board[SQUARE_TYPES][BOARD_DIM];
-	short bigBoard[SQUARE_TYPES];
 	unsigned short flags;
-	short bigBoardDraw;
 };
 
 Board::Board() {
@@ -762,25 +763,17 @@ void Board::init() {
 		}
 	}
 
-	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
-		bigBoard[miniBoardIdx] = EMPTY_TICTACTOE_BOARD;
-	}
-
 	flags = 0;
 	setStatus(BoardStatus::IN_PROGRESS);
-	bigBoardDraw = EMPTY_TICTACTOE_BOARD;
 }
 
 void Board::copy(const Board& rhs) {
 	this->flags = rhs.flags;
-	this->bigBoardDraw = rhs.bigBoardDraw;
 
 	for (int sqTypeIdx = 0; sqTypeIdx < SQUARE_TYPES; ++sqTypeIdx) {
 		for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
 			this->board[sqTypeIdx][miniBoardIdx] = rhs.board[sqTypeIdx][miniBoardIdx];
 		}
-
-		this->bigBoard[sqTypeIdx] = rhs.bigBoard[sqTypeIdx];
 	}
 }
 
@@ -822,18 +815,10 @@ void Board::playMove(const Coords move) {
 	setMove(move);
 	setPlayerIdx(move, miniBoardIdx, player);
 	const short miniBoard = board[player][miniBoardIdx];
-	if (WIN_BOARDS[miniBoard]) {
-		bigBoard[player] |= (1 << miniBoardIdx);
-	}
-	else if (FULL_BOARD_MASK == (board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx])) {
-		bigBoardDraw |= (1 << miniBoardIdx);
-	}
 
-	if (WIN_BOARDS[bigBoard[player]]) {
-		setStatus((MY_PLAYER_IDX == player) ? BoardStatus::I_WON : BoardStatus::OPPONENT_WON);
-	}
-	else if (FULL_BOARD_MASK == (bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw)) {
-		setStatus(resolveDraw());
+	const bool boardFull = FULL_BOARD_MASK == (board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx]);
+	if (WIN_BOARDS[miniBoard] || boardFull) {
+		checkForTerminal(player);
 	}
 
 	setPlayer(togglePlayer(player));
@@ -843,7 +828,7 @@ Coords Board::getRandomMove() const {
 	int miniBoardIdx = getMove().getNextMiniBoard();
 
 	if (notPlayableMiniBoard(miniBoardIdx)) {
-		const short boardMask = bigBoard[0] | bigBoard[1] | bigBoardDraw;
+		const short boardMask = getBigBoardMask();
 		const size_t movesCount = ALL_MOVES[boardMask].size();
 		miniBoardIdx = ALL_MOVES[boardMask][fast_rand() % movesCount];
 	}
@@ -880,7 +865,7 @@ void Board::getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCo
 		}
 	}
 	else {
-		for (const int miniBoardIdx : ALL_MOVES[bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw]) {
+		for (const int miniBoardIdx : ALL_MOVES[getBigBoardMask()]) {
 			for (const int moveIdx : ALL_MOVES[board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx]]) {
 				allMoves[allMovesCount] = getBigBoardPosition(miniBoardIdx, moveIdx);
 				++allMovesCount;
@@ -910,6 +895,45 @@ BoardStatus Board::resolveDraw() const {
 		mineMiniBoardsWon		+= WIN_BOARDS[board[MY_PLAYER_IDX][miniBoardIdx]];
 	}
 	return (opponentMiniBoardsWon > mineMiniBoardsWon) ? BoardStatus::OPPONENT_WON : BoardStatus::I_WON;
+}
+
+void Board::checkForTerminal(const int player) {
+	const short opponent = togglePlayer(player);
+
+	short playerBoardToCheck = 0;
+	short opponentBoardToCheck = 0;
+	short drawBoards = 0;
+
+	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+		playerBoardToCheck |= (static_cast<int>(WIN_BOARDS[board[player][miniBoardIdx]]) << miniBoardIdx);
+		opponentBoardToCheck |= (static_cast<int>(WIN_BOARDS[board[opponent][miniBoardIdx]]) << miniBoardIdx);
+
+		short wholeBoard = board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx];
+		drawBoards |= (static_cast<int>(FULL_BOARD_MASK == wholeBoard) << miniBoardIdx);
+	}
+
+	if (WIN_BOARDS[playerBoardToCheck]) {
+		setStatus((MY_PLAYER_IDX == player) ? BoardStatus::I_WON : BoardStatus::OPPONENT_WON);
+	}
+	else if (FULL_BOARD_MASK == (playerBoardToCheck | opponentBoardToCheck | drawBoards)) {
+		setStatus(resolveDraw());
+	}
+}
+
+short Board::getBigBoardMask() const {
+	short playerBoardToCheck = 0;
+	short opponentBoardToCheck = 0;
+	short drawBoards = 0;
+
+	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+		playerBoardToCheck |= (static_cast<int>(WIN_BOARDS[board[MY_PLAYER_IDX][miniBoardIdx]]) << miniBoardIdx);
+		opponentBoardToCheck |= (static_cast<int>(WIN_BOARDS[board[OPPONENT_PLAYER_IDX][miniBoardIdx]]) << miniBoardIdx);
+
+		short wholeBoard = board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx];
+		drawBoards |= (static_cast<int>(FULL_BOARD_MASK == wholeBoard) << miniBoardIdx);
+	}
+
+	return playerBoardToCheck | opponentBoardToCheck | drawBoards;
 }
 
 ostream& operator<<(std::ostream& stream, const Board& board) {
