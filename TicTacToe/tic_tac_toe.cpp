@@ -885,11 +885,20 @@ Coords Board::getRandomMoveForBoard(const int miniBoardIdx, const short board) c
 void Board::getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
 	allMovesCount = 0;
 
-	const int activeMiniBoardIdx = getMove().getNextMiniBoard(); // Current moves detemine the next mini board
-	getAllPossibleMovesForMiniBoard(activeMiniBoardIdx, allMoves, allMovesCount);
-
-	if (0 == allMovesCount) {
-		getAllPossibleMovesForAllMiniBoards(allMoves, allMovesCount);
+	const int miniBoardIdx = getMove().getNextMiniBoard(); // Current moves detemine the next mini board
+	if (playableMiniBoard(miniBoardIdx)) {
+		for (const int moveIdx : ALL_MOVES[board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx]]) {
+			allMoves[allMovesCount] = getBigBoardPosition(miniBoardIdx, moveIdx);
+			++allMovesCount;
+		}
+	}
+	else {
+		for (const int miniBoardIdx : ALL_MOVES[bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw]) {
+			for (const int moveIdx : ALL_MOVES[board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx]]) {
+				allMoves[allMovesCount] = getBigBoardPosition(miniBoardIdx, moveIdx);
+				++allMovesCount;
+			}
+		}
 	}
 }
 
@@ -1230,14 +1239,14 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 	const State& parentState = parentNode.getState();
 	const Board& parentBoard = parentState.getBoard();
 	parentBoard.getAllPossibleMoves(allMoves, allMovesCount);
-
+	
 	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
 		Board childBoard{ parentBoard };
 		childBoard.playMove(allMoves[moveIdx]);
-
+	
 		State childState{ childBoard, 0, 0.0 };
 		Node childNode{ childState, selectedNode };
-
+	
 		const int childNodeIdx = searchTree.addNode(childNode);
 		parentNode.addChild(childNodeIdx);
 	}
