@@ -34,7 +34,7 @@ static constexpr int OPPONENT_PLAYER_IDX = 1;
 static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
 static constexpr char EMPTY_CHAR = '_';
-static constexpr size_t NODES_TO_RESERVE = 8'000'000;
+static constexpr size_t NODES_TO_RESERVE = 9'000'000;
 static constexpr long long FIRST_TURN_MS = 1'000;
 static constexpr long long TURN_MS = 110;
 static constexpr long long BIAS_MS = 2;
@@ -568,7 +568,7 @@ vector<int> ALL_MOVES[ALL_POSSOBLE_FILLED_BOARDS] = {
 short NEXT_MINIBOARD[BOARD_DIM][BOARD_DIM] = { 0,1,2,0,1,2,0,1,2,3,4,5,3,4,5,3,4,5,6,7,8,6,7,8,6,7,8,0,1,2,0,1,2,0,1,2,3,4,5,3,4,5,3,4,5,6,7,8,6,7,8,6,7,8,0,1,2,0,1,2,0,1,2,3,4,5,3,4,5,3,4,5,6,7,8,6,7,8,6,7,8 };
 short CURR_MINIBOARD[BOARD_DIM][BOARD_DIM] = { 0,0,0,1,1,1,2,2,2,0,0,0,1,1,1,2,2,2,0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,3,3,3,4,4,4,5,5,5,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,6,6,6,7,7,7,8,8,8,6,6,6,7,7,7,8,8,8 };
 
-bool WIN_BOARDS[ALL_POSSOBLE_FILLED_BOARDS] = {
+short WIN_BOARDS[ALL_POSSOBLE_FILLED_BOARDS] = {
 	0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,1,0,1,1,1,1,1,0,0,0,0,
 	0,0,0,1,0,1,0,1,0,1,0,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,
 	0,1,0,1,0,1,0,1,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,
@@ -687,12 +687,13 @@ public:
 	Coords getBigBoardPosition(const int miniBoardIdx, const int miniBoardInnerIdx) const;
 	int getPlayerIdx(const Coords pos) const;
 	void setPlayerIdx(const Coords pos, const short miniBoardIdx, const int playerIdx);
-	void playMove(const Coords move);
-	Coords getRandomMove() const;
+	void playMove(const Coords move, short (&bigBoard)[SQUARE_TYPES], short& bigBoardDraw);
+	Coords getRandomMove(const short (&bigBoard)[SQUARE_TYPES], short bigBoardDraw) const;
 	Coords getRandomMoveForBoard(const int miniBoardIdx, const short board) const;
 	void getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const;
 	int togglePlayer(const int playerToToggle) const;
 	int simulateRandomGame();
+	void constructBigBoard(short(&bigBoard)[SQUARE_TYPES], short& bigBoardDraw);
 
 	friend ostream& operator<<(std::ostream& stream, const Board& board);
 
@@ -808,7 +809,7 @@ void Board::setPlayerIdx(const Coords pos, const short miniBoardIdx, const int p
 	board[playerIdx][miniBoardIdx] |= 1 << miniBoardInnerIdx;
 }
 
-void Board::playMove(const Coords move) {
+void Board::playMove(const Coords move, short(&bigBoard)[SQUARE_TYPES], short& bigBoardDraw) {
 	const int player = getPlayer();
 	const short miniBoardIdx = move.getCurrMiniBoard();
 
@@ -816,19 +817,26 @@ void Board::playMove(const Coords move) {
 	setPlayerIdx(move, miniBoardIdx, player);
 	const short miniBoard = board[player][miniBoardIdx];
 
-	const bool boardFull = FULL_BOARD_MASK == (board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx]);
-	if (WIN_BOARDS[miniBoard] || boardFull) {
-		checkForTerminal(player);
+	const int boardFull = FULL_BOARD_MASK == (board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx]);
+
+	bigBoard[player] |= WIN_BOARDS[miniBoard] << miniBoardIdx;
+	bigBoardDraw |= boardFull << miniBoardIdx;
+
+	if (WIN_BOARDS[bigBoard[player]]) {
+		setStatus((MY_PLAYER_IDX == player) ? BoardStatus::I_WON : BoardStatus::OPPONENT_WON);
+	}
+	else if (FULL_BOARD_MASK == (bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw)) {
+		setStatus(resolveDraw());
 	}
 
 	setPlayer(togglePlayer(player));
 }
 
-Coords Board::getRandomMove() const {
+Coords Board::getRandomMove(const short(&bigBoard)[SQUARE_TYPES], short bigBoardDraw) const {
 	int miniBoardIdx = getMove().getNextMiniBoard();
 
 	if (notPlayableMiniBoard(miniBoardIdx)) {
-		const short boardMask = getBigBoardMask();
+		const short boardMask = bigBoard[MY_PLAYER_IDX] | bigBoard[OPPONENT_PLAYER_IDX] | bigBoardDraw;
 		const size_t movesCount = ALL_MOVES[boardMask].size();
 		miniBoardIdx = ALL_MOVES[boardMask][fast_rand() % movesCount];
 	}
@@ -839,8 +847,12 @@ Coords Board::getRandomMove() const {
 int Board::simulateRandomGame() {
 	//cerr << *this << endl;
 
+	short bigBoard[SQUARE_TYPES] = { 0, 0 };
+	short bigBoardDraw = 0;
+	constructBigBoard(bigBoard, bigBoardDraw);
+
 	while (BoardStatus::IN_PROGRESS == getStatus()) {
-		playMove(getRandomMove());
+		playMove(getRandomMove(bigBoard, bigBoardDraw), bigBoard, bigBoardDraw);
 
 		//cerr << *this << endl;
 	}
@@ -905,8 +917,8 @@ void Board::checkForTerminal(const int player) {
 	short drawBoards = 0;
 
 	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
-		playerBoardToCheck |= (static_cast<int>(WIN_BOARDS[board[player][miniBoardIdx]]) << miniBoardIdx);
-		opponentBoardToCheck |= (static_cast<int>(WIN_BOARDS[board[opponent][miniBoardIdx]]) << miniBoardIdx);
+		playerBoardToCheck |= WIN_BOARDS[board[player][miniBoardIdx]] << miniBoardIdx;
+		opponentBoardToCheck |= WIN_BOARDS[board[opponent][miniBoardIdx]] << miniBoardIdx;
 
 		short wholeBoard = board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx];
 		drawBoards |= (static_cast<int>(FULL_BOARD_MASK == wholeBoard) << miniBoardIdx);
@@ -926,14 +938,24 @@ short Board::getBigBoardMask() const {
 	short drawBoards = 0;
 
 	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
-		playerBoardToCheck |= (static_cast<int>(WIN_BOARDS[board[MY_PLAYER_IDX][miniBoardIdx]]) << miniBoardIdx);
-		opponentBoardToCheck |= (static_cast<int>(WIN_BOARDS[board[OPPONENT_PLAYER_IDX][miniBoardIdx]]) << miniBoardIdx);
+		playerBoardToCheck |= WIN_BOARDS[board[MY_PLAYER_IDX][miniBoardIdx]] << miniBoardIdx;
+		opponentBoardToCheck |= WIN_BOARDS[board[OPPONENT_PLAYER_IDX][miniBoardIdx]] << miniBoardIdx;
 
 		short wholeBoard = board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx];
 		drawBoards |= (static_cast<int>(FULL_BOARD_MASK == wholeBoard) << miniBoardIdx);
 	}
 
 	return playerBoardToCheck | opponentBoardToCheck | drawBoards;
+}
+
+void Board::constructBigBoard(short (&bigBoard)[SQUARE_TYPES], short& bigBoardDraw) {
+	for (int miniBoardIdx = 0; miniBoardIdx < BOARD_DIM; ++miniBoardIdx) {
+		bigBoard[MY_PLAYER_IDX] |= WIN_BOARDS[board[MY_PLAYER_IDX][miniBoardIdx]] << miniBoardIdx;
+		bigBoard[OPPONENT_PLAYER_IDX] |= WIN_BOARDS[board[OPPONENT_PLAYER_IDX][miniBoardIdx]] << miniBoardIdx;
+
+		short wholeBoard = board[MY_PLAYER_IDX][miniBoardIdx] | board[OPPONENT_PLAYER_IDX][miniBoardIdx];
+		bigBoardDraw |= (static_cast<int>(FULL_BOARD_MASK == wholeBoard) << miniBoardIdx);
+	}
 }
 
 ostream& operator<<(std::ostream& stream, const Board& board) {
@@ -1220,7 +1242,11 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 	
 	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
 		Board childBoard{ parentBoard };
-		childBoard.playMove(allMoves[moveIdx]);
+
+		short bigBoard[SQUARE_TYPES] = { 0, 0 };
+		short bigBoardDraw = 0;
+		childBoard.constructBigBoard(bigBoard, bigBoardDraw);
+		childBoard.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
 	
 		State childState{ childBoard, 0, 0.0 };
 		Node childNode{ childState, selectedNode };
@@ -1394,18 +1420,22 @@ void Game::getTurnInput() {
 }
 
 void Game::turnBegin() {
-	fast_srand(rand());
+	fast_srand(fast_rand());
+
+	short bigBoard[SQUARE_TYPES] = { 0, 0 };
+	short bigBoardDraw = 0;
+	board.constructBigBoard(bigBoard, bigBoardDraw);
 
 	if (0 == turnsCount && opponentMove.isValid()) {
 		board.setPlayer(OPPONENT_PLAYER_IDX);
-		board.playMove(opponentMove);
+		board.playMove(opponentMove, bigBoard, bigBoardDraw);
 	}
 	else if (0 == turnsCount) {
 		board.setPlayer(MY_PLAYER_IDX);
-		board.playMove({ BOARD_DIM / 2, BOARD_DIM / 2 });
+		board.playMove({ BOARD_DIM / 2, BOARD_DIM / 2 }, bigBoard, bigBoardDraw);
 	}
 	else {
-		board.playMove(opponentMove);
+		board.playMove(opponentMove, bigBoard, bigBoardDraw);
 	}
 
 	if (0 == turnsCount) {
@@ -1422,8 +1452,12 @@ void Game::makeTurn() {
 	const Coords bestMove = monteCarloTreeSearch.getBestMove();
 	cout << bestMove << endl;
 
+	short bigBoard[SQUARE_TYPES] = { 0, 0 };
+	short bigBoardDraw = 0;
+	board.constructBigBoard(bigBoard, bigBoardDraw);
+
 	if (opponentMove.isValid()) {
-		board.playMove(bestMove);
+		board.playMove(bestMove, bigBoard, bigBoardDraw);
 	}
 }
 
