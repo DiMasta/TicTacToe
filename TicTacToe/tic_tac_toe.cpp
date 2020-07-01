@@ -36,7 +36,7 @@ static constexpr char OPPONENT_PLAYER_CHAR = 'O';
 static constexpr char EMPTY_CHAR = '_';
 static constexpr size_t NODES_TO_RESERVE = 9'000'000;
 static constexpr long long FIRST_TURN_MS = 1'000;
-static constexpr long long TURN_MS = 110;
+static constexpr long long TURN_MS = 100;
 static constexpr long long BIAS_MS = 2;
 static constexpr float WIN_VALUE = 10.0;
 static constexpr unsigned short PLAYER_FLAG		= 0b0000'0000'0000'0001;
@@ -577,6 +577,7 @@ short WIN_BOARDS[ALL_POSSOBLE_FILLED_BOARDS] = {
 	1,1,1,1,1,1,1,1,1,1,1
 };
 
+short BEST_WINNING_MOVES[ALL_POSSOBLE_FILLED_BOARDS] = { 9,9,9,2,9,1,0,3,9,6,9,2,9,1,0,6,9,8,7,2,6,1,0,6,5,5,5,2,5,6,0,6,9,9,9,2,8,1,0,8,4,4,4,2,4,1,0,4,3,3,3,2,3,8,0,8,0,6,7,2,6,6,0,6,9,3,9,2,4,1,0,3,0,1,0,2,0,1,0,4,2,2,2,2,0,1,0,3,0,2,0,2,0,1,0,5,9,3,9,2,4,1,0,3,0,4,0,2,4,4,0,4,2,3,2,2,3,3,0,3,0,2,0,2,0,8,0,8,9,9,4,2,9,1,0,4,9,6,4,2,9,1,0,4,1,1,0,2,1,1,0,6,1,1,5,2,1,1,0,6,9,9,4,2,8,1,0,4,4,4,4,4,4,1,4,4,1,1,3,2,1,1,0,8,1,1,0,2,1,1,0,6,8,3,4,2,4,1,4,4,0,8,0,2,0,1,0,4,1,8,2,2,1,1,0,8,0,8,0,2,0,1,0,8,8,3,4,2,8,8,4,4,0,4,4,4,4,4,4,4,1,3,2,2,8,8,8,8,0,8,0,2,8,8,0,8,9,4,9,2,5,1,0,4,9,4,9,2,5,1,0,4,0,1,0,2,0,1,0,5,0,5,0,2,5,5,0,5,2,2,2,2,0,1,0,4,2,4,2,2,4,4,0,4,0,2,0,2,0,1,0,3,0,2,0,2,0,6,0,6,7,3,7,2,4,4,0,4,0,4,0,2,0,4,0,4,0,2,7,2,0,1,0,7,0,2,0,2,0,5,0,5,2,2,2,2,4,4,0,4,0,4,0,2,4,4,0,4,2,2,2,2,0,3,0,3,0,2,0,2,0,1,0,7,6,4,4,4,5,1,0,4,6,6,4,4,5,6,0,4,0,1,0,2,6,1,0,6,0,6,0,6,5,6,0,6,2,2,2,2,6,1,0,4,2,4,4,4,4,4,4,4,0,1,0,2,6,1,0,6,0,6,0,2,6,6,0,6,0,3,4,4,4,4,4,4,0,4,0,4,0,4,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,2,2,2,2,4,4,4,4,0,4,4,4,4,4,4,4,2,2,2,2,0,1,0,3,0,2,0,2,0,1,0 };
 int PLAYER_SQUARES_COUNT[ALL_POSSOBLE_FILLED_BOARDS] = { 0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,5,6,6,7,6,7,7,8,6,7,7,8,7,8,8 };
 
 enum class BoardStatus {
@@ -604,7 +605,7 @@ inline int fast_rand(void) {
 	return (g_seed >> 16) & 0x7FFF;
 }
 
-typedef int Coord;
+typedef char Coord;
 const Coord INVALID_COORD = -1;
 
 class Coords {
@@ -667,7 +668,7 @@ bool Coords::isValid() const {
 }
 
 ostream& operator<<(ostream& stream, const Coords& coords) {
-	stream << coords.rowCoord << SPACE << coords.colCoord;
+	stream << static_cast<int>(coords.rowCoord) << SPACE << static_cast<int>(coords.colCoord);
 	return stream;
 }
 
@@ -930,9 +931,17 @@ int Board::simulateRandomGame() {
 }
 
 Coords Board::getRandomMoveForBoard(const int miniBoardIdx, const short board) const {
-	const size_t movesCount = ALL_MOVES[board].size();
+	Coords res;
 
-	return BIG_BOARD_POSITIONS[miniBoardIdx][ALL_MOVES[board][fast_rand() % movesCount]];
+	if (BOARD_DIM != BEST_WINNING_MOVES[board]) {
+		res = BIG_BOARD_POSITIONS[miniBoardIdx][BEST_WINNING_MOVES[board]];
+	}
+	else {
+		const size_t movesCount = ALL_MOVES[board].size();
+		res = BIG_BOARD_POSITIONS[miniBoardIdx][ALL_MOVES[board][fast_rand() % movesCount]];
+	}
+
+	return res;
 }
 
 void Board::getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
@@ -971,7 +980,7 @@ BoardStatus Board::resolveDraw(const short(&bigBoard)[SQUARE_TYPES]) const {
 	int mineMiniBoardsWon = PLAYER_SQUARES_COUNT[bigBoard[MY_PLAYER_IDX]];
 	int opponentMiniBoardsWon = PLAYER_SQUARES_COUNT[bigBoard[OPPONENT_PLAYER_IDX]];
 
-	return (opponentMiniBoardsWon > mineMiniBoardsWon) ? BoardStatus::OPPONENT_WON : BoardStatus::I_WON;
+	return (opponentMiniBoardsWon >= mineMiniBoardsWon) ? BoardStatus::OPPONENT_WON : BoardStatus::I_WON;
 }
 
 short Board::getBigBoardMask() const {
@@ -1001,12 +1010,12 @@ void Board::constructBigBoard(short (&bigBoard)[SQUARE_TYPES], short& bigBoardDr
 }
 
 ostream& operator<<(std::ostream& stream, const Board& board) {
-	for (int rowIdx = 0; rowIdx < BOARD_DIM + 1; ++rowIdx) {
+	for (Coord rowIdx = 0; rowIdx < BOARD_DIM + 1; ++rowIdx) {
 		if (rowIdx > 0 && 0 == rowIdx % TRIPLE) {
 			stream << endl;
 		}
 
-		for (int colIdx = 0; colIdx < BOARD_DIM + 1; ++colIdx) {
+		for (Coord colIdx = 0; colIdx < BOARD_DIM + 1; ++colIdx) {
 			if (0 == colIdx % TRIPLE) {
 				stream << SPACE << SPACE << SPACE;
 			}
