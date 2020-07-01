@@ -1517,7 +1517,7 @@ void Game::turnEnd() {
 }
 
 void Game::play() {
-	initGame();
+	initGame(); 
 	gameLoop();
 }
 
