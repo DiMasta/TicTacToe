@@ -1094,25 +1094,29 @@ State::State(const Board& board, const int visits, const float winScore) :
 
 class Node {
 public:
-	Node(const State& state, const int parentIdx);
+	Node(const State& state, const int parentIdx, const char depth);
 	const State& getState() const { return state; }
 	State& getState() { return state; }
 	int getFirstChild() const { return firstChild; }
 	int getParentIdx() const { return parentIdx; }
+	char getDepth() const { return depth; }
 	void addChild(const int childIdxNode);
 	int getChildrenCount() const;
+
 private:
 	State state;
 	int firstChild;
 	int parentIdx;
 	char childrenCount;
+	char depth;
 };
 
-Node::Node(const State& state, const int parentIdx) :
+Node::Node(const State& state, const int parentIdx, const char depth) :
 	state{ state },
 	firstChild{ INVALID_IDX},
+	parentIdx{ parentIdx },
 	childrenCount{ 0 },
-	parentIdx{ parentIdx }
+	depth{ depth }
 {}
 
 void Node::addChild(const int childIdxNode) {
@@ -1142,7 +1146,7 @@ private:
 void Tree::init(const Board& initialBoard) {
 	nodes.reserve(NODES_TO_RESERVE);
 	State rootState{ initialBoard, 0, 0 };
-	Node rootNode{ rootState, INVALID_IDX };
+	Node rootNode{ rootState, INVALID_IDX, 0 };
 	nodes.emplace_back(rootNode);
 }
 
@@ -1205,6 +1209,8 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	int allMovesCount;
 
 	int iteration = 0;
+	int maxDepth = 0;
+
 	chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
@@ -1213,10 +1219,13 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
+		if (selectedNode.getDepth() > maxDepth) {
+			maxDepth = selectedNode.getDepth();
+		}
+
 		if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
 			expansion(selectedNodeIdx, allMoves, allMovesCount);
-			//selectedNodeIdx = selectedNode.getFirstChild() + (fast_rand() % selectedNode.getChildrenCount());
-			selectedNodeIdx = selectedNode.getFirstChild();
+			selectedNodeIdx = selectedNode.getFirstChild() + (fast_rand() % selectedNode.getChildrenCount());
 		}
 
 		int victoriousPlayer = simulation(selectedNodeIdx);
@@ -1227,6 +1236,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 
 	cerr << "MCTS iterations: " << iteration << endl;
 	cerr << "Nodes count: " << searchTree.getNodesCount() << endl;
+	cerr << "Max depth: " << maxDepth << endl;
 
 	searchEnd(turnIdx, allMoves, allMovesCount);
 }
@@ -1274,7 +1284,7 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 		childBoard.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
 	
 		State childState{ childBoard, 0, 0.0 };
-		Node childNode{ childState, selectedNode };
+		Node childNode{ childState, selectedNode, parentNode.getDepth() + 1 };
 	
 		const int childNodeIdx = searchTree.addNode(childNode);
 		parentNode.addChild(childNodeIdx);
