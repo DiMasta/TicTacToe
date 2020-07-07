@@ -2,7 +2,7 @@
 #pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
 #pragma GCC target("avx")  //Enable AVX
 #include <x86intrin.h> //AVX/SSE Extensions
-#include <bits/stdc++.h> //All main STD libraries
+//#include <bits/stdc++.h> //All main STD libraries
 
 #include <iostream>
 #include <fstream>
@@ -969,16 +969,12 @@ int Board::simulateRandomGame() {
 }
 
 Coords Board::getRandomMoveForBoard(const int miniBoardIdx, const short board) const {
-	Coords res;
-
 	if (BOARD_DIM != BEST_WINNING_MOVES[board]) {
-		res = BIG_BOARD_POSITIONS[miniBoardIdx][BEST_WINNING_MOVES[board]];
+		return BIG_BOARD_POSITIONS[miniBoardIdx][BEST_WINNING_MOVES[board]];
 	}
 	else {
-		res = BIG_BOARD_POSITIONS[miniBoardIdx][ALL_MOVES[board][fast_rand() % ZEROS_IN_BOARD[board]]];
+		return BIG_BOARD_POSITIONS[miniBoardIdx][ALL_MOVES[board][fast_rand() % ZEROS_IN_BOARD[board]]];
 	}
-
-	return res;
 }
 
 void Board::getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
@@ -1156,7 +1152,7 @@ int Node::getChildrenCount() const {
 
 class Tree {
 public:
-	int getNodesCount() const { return static_cast<int>(nodes.size()); }
+	int getNodesCount() const { return nodesCount; }
 	void init(const Board& initialBoard);
 	const Node& getNode(const int nodeIdx) const { return nodes[nodeIdx]; }
 	Node& getNode(const int nodeIdx) { return nodes[nodeIdx]; }
@@ -1165,6 +1161,7 @@ public:
 
 private:
 	vector<Node> nodes;
+	int nodesCount;
 };
 
 void Tree::init(const Board& initialBoard) {
@@ -1172,6 +1169,7 @@ void Tree::init(const Board& initialBoard) {
 	State rootState{ initialBoard, 0, 0 };
 	Node rootNode{ rootState, INVALID_IDX };
 	nodes.emplace_back(rootNode);
+	nodesCount = 1;
 }
 
 void Tree::setRootPlayer(const int playerIdx) {
@@ -1180,7 +1178,9 @@ void Tree::setRootPlayer(const int playerIdx) {
 
 int Tree::addNode(const Node& node) {
 	nodes.emplace_back(node);
-	return static_cast<int>(nodes.size() - 1);
+	++nodesCount;
+
+	return nodesCount - 1;
 }
 
 class MonteCarloTreeSearch {
