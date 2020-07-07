@@ -2,16 +2,16 @@
 #pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
 #pragma GCC target("avx")  //Enable AVX
 #include <x86intrin.h> //AVX/SSE Extensions
-//#include <bits/stdc++.h> //All main STD libraries
+#include <bits/stdc++.h> //All main STD libraries
 
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <vector>
-#include <map>
-#include <chrono>
-#include <cmath>
-#include <cstring>
+//#include <iostream>
+//#include <fstream>
+//#include <string>
+//#include <vector>
+//#include <map>
+//#include <chrono>
+//#include <cmath>
+//#include <cstring>
 
 using namespace std;
 
@@ -601,10 +601,13 @@ enum class BoardStatus {
 	I_WON,
 };
 
-static void printTabs(const int tabsCount, string& str) {
-	for (int tabIdx = 0; tabIdx < tabsCount; ++tabIdx) {
-		str += TAB;
-	}
+float invSqrt(float x) {
+	float xhalf = 0.5f*x;
+	int i = *(int*)&x;
+	i = 0x5f3759df - (i >> 1);
+	x = *(float*)&i;
+	x = x * (1.5f - xhalf * x*x);
+	return x;
 }
 
 static unsigned int g_seed;
@@ -1195,11 +1198,11 @@ public:
 	void setRootPlayer(const int playerIdx);
 
 private:
-	int selectPromisingNode() const;
+	int selectPromisingNode();
 	void expansion(const int selectedNode, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 	int simulation(const int nodeToExploreIdx);
 	void backPropagation(const int nodeToExploreIdx, const int simulationResult);
-	float uct(const float nodeWinScore, const int parentVisits, const int nodeVisit) const;
+	float uct(const float nodeWinScore, const int parentVisits, const int nodeVisit);
 	void searchBegin(const int turnIdx);
 	void searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 
@@ -1263,7 +1266,7 @@ void MonteCarloTreeSearch::setRootPlayer(const int playerIdx) {
 	searchTree.setRootPlayer(playerIdx);
 }
 
-int MonteCarloTreeSearch::selectPromisingNode() const {
+int MonteCarloTreeSearch::selectPromisingNode() {
 	int currentNodeIdx = turnRootNodeIdx;
 
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
@@ -1275,7 +1278,7 @@ int MonteCarloTreeSearch::selectPromisingNode() const {
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeFirstChild + childIdx;
 			const State& childState = searchTree.getNode(childNodeIdx).getState();
-			const float childUCT = uct(childState.getWinScore(), parentVisits, childState.getVisits());
+			float childUCT = uct(childState.getWinScore(), parentVisits, childState.getVisits());
 
 			if (childUCT > maxUCT) {
 				maxUCT = childUCT;
@@ -1304,8 +1307,7 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 		State childState{ childBoard, 0, 0.0 };
 		Node childNode{ childState, selectedNode };
 	
-		const int childNodeIdx = searchTree.addNode(childNode);
-		parentNode.addChild(childNodeIdx);
+		parentNode.addChild(searchTree.addNode(childNode));
 	}
 }
 
@@ -1331,17 +1333,18 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 	}
 }
 
-float MonteCarloTreeSearch::uct(const float nodeWinScore, const int parentVisits, const int nodeVisit) const {
+float MonteCarloTreeSearch::uct(const float nodeWinScore, const int parentVisits, const int nodeVisit) {
 	float uctValue{ maxDouble };
 
 	if (nodeVisit > 0) {
 		const float nodeVisitDouble = static_cast<float>(nodeVisit);
 		const float totalVisitsDouble = static_cast<float>(parentVisits);
 		const float winVisitsRatio = nodeWinScore / nodeVisitDouble;
-		const float confidentRatio = sqrtOf2 * sqrtf(logf(totalVisitsDouble) / nodeVisitDouble);
+		const float confidentRatio = sqrtOf2 * (1 / invSqrt(logf(totalVisitsDouble) / nodeVisitDouble));
 
 		uctValue = winVisitsRatio + confidentRatio;
 	}
+
 	return uctValue;
 }
 
