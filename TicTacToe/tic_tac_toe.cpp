@@ -1,8 +1,8 @@
-#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
-#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
-#pragma GCC target("avx")  //Enable AVX
-#include <x86intrin.h> //AVX/SSE Extensions
-#include <bits/stdc++.h> //All main STD libraries
+//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+//#pragma GCC target("avx")  //Enable AVX
+//#include <x86intrin.h> //AVX/SSE Extensions
+//#include <bits/stdc++.h> //All main STD libraries
 
 #include <iostream>
 #include <fstream>
@@ -15,7 +15,7 @@
 
 using namespace std;
 
-//#define REDIRECT_INPUT
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define DEBUG_ONE_TURN
 
@@ -959,20 +959,14 @@ int Board::simulateRandomGame() {
 	constructBigBoard(bigBoard, bigBoardDraw);
 	Coords move = getMove();
 	int player = getPlayer();
-	int evaluation = terminal(bigBoard);
 
-	if (INVALID_IDX != evaluation) {
-		while (BoardStatus::IN_PROGRESS == getStatus()) {
-			playMove(getRandomMove(move, bigBoard, bigBoardDraw), bigBoard, bigBoardDraw, move, player);
+	while (BoardStatus::IN_PROGRESS == getStatus()) {
+		playMove(getRandomMove(move, bigBoard, bigBoardDraw), bigBoard, bigBoardDraw, move, player);
 
-			//cerr << *this << endl;
-		}
-
-		return BoardStatus::I_WON == getStatus() ? MY_PLAYER_IDX : OPPONENT_PLAYER_IDX;
+		//cerr << *this << endl;
 	}
-	else {
-		return evaluation;
-	}
+
+	return BoardStatus::I_WON == getStatus() ? MY_PLAYER_IDX : OPPONENT_PLAYER_IDX;
 }
 
 Coords Board::getRandomMoveForBoard(const int miniBoardIdx, const short board) const {
@@ -1055,8 +1049,13 @@ void Board::constructBigBoard(short (&bigBoard)[SQUARE_TYPES], short& bigBoardDr
 }
 
 int Board::terminal(const short(&bigBoard)[SQUARE_TYPES]) {
+	int res = INVALID_IDX;
 
-	return 0;
+	if (abs(ONES_IN_BOARD[bigBoard[0]] - ONES_IN_BOARD[bigBoard[1]]) > 1) {
+		res = ONES_IN_BOARD[bigBoard[0]] > ONES_IN_BOARD[bigBoard[1]] ? 0 : 1;
+	}
+
+	return res;
 }
 
 ostream& operator<<(std::ostream& stream, const Board& board) {
@@ -1116,12 +1115,11 @@ State::State(const Board& board, const int visits, const float winScore) :
 
 class Node {
 public:
-	Node(const State& state, const int parentIdx, const char depth);
+	Node(const State& state, const int parentIdx);
 	const State& getState() const { return state; }
 	State& getState() { return state; }
 	int getFirstChild() const { return firstChild; }
 	int getParentIdx() const { return parentIdx; }
-	char getDepth() const { return depth; }
 	void addChild(const int childIdxNode);
 	int getChildrenCount() const;
 
@@ -1133,12 +1131,11 @@ private:
 	char depth;
 };
 
-Node::Node(const State& state, const int parentIdx, const char depth) :
+Node::Node(const State& state, const int parentIdx) :
 	state{ state },
 	firstChild{ INVALID_IDX},
 	parentIdx{ parentIdx },
-	childrenCount{ 0 },
-	depth{ depth }
+	childrenCount{ 0 }
 {}
 
 void Node::addChild(const int childIdxNode) {
@@ -1168,7 +1165,7 @@ private:
 void Tree::init(const Board& initialBoard) {
 	nodes.reserve(NODES_TO_RESERVE);
 	State rootState{ initialBoard, 0, 0 };
-	Node rootNode{ rootState, INVALID_IDX, 0 };
+	Node rootNode{ rootState, INVALID_IDX };
 	nodes.emplace_back(rootNode);
 }
 
@@ -1300,7 +1297,7 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 		childBoard.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
 	
 		State childState{ childBoard, 0, 0.0 };
-		Node childNode{ childState, selectedNode, parentNode.getDepth() + 1 };
+		Node childNode{ childState, selectedNode };
 	
 		const int childNodeIdx = searchTree.addNode(childNode);
 		parentNode.addChild(childNodeIdx);
