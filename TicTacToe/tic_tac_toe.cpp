@@ -35,11 +35,11 @@ static constexpr int OPPONENT_PLAYER_IDX = 1;
 static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
 static constexpr char EMPTY_CHAR = '_';
-static constexpr size_t NODES_TO_RESERVE = 9'000'000;
+static constexpr size_t NODES_TO_RESERVE = 15'000'000;
 static constexpr long long FIRST_TURN_MS = 1'000;
 static constexpr long long TURN_MS = 100;
 static constexpr long long BIAS_MS = 2;
-static constexpr float WIN_VALUE = 10.0;
+static constexpr float WIN_VALUE = 10.f;
 static constexpr unsigned short PLAYER_FLAG		= 0b0000'0000'0000'0001;
 static constexpr unsigned short STATUS_MASK		= 0b0000'0000'0000'0110;
 static constexpr unsigned short MOVE_ROW_MASK	= 0b0000'0000'0111'1000;
@@ -1107,17 +1107,19 @@ public:
 	Board& getBoard() { return board; }
 	float getVisits() const { return visits; }
 	float getWinScore() const { return winScore; }
+	float getUCTValue() const { return uctValue; }
 	int getFirstChild() const { return firstChild; }
 	int getParentIdx() const { return parentIdx; }
 	int getChildrenCount() const { return childrenCount; }
-	void addChild(const int childIdxNode);
 
-	float uct(const float parentVisits) const;
+	void addChild(const int childIdxNode);
+	void uct(const float parentVisits);
 
 private:
 	Board board;
 	float visits;
 	float winScore;
+	float uctValue;
 	int firstChild;
 	int parentIdx;
 	char childrenCount;
@@ -1127,6 +1129,7 @@ Node::Node(const Board& board, const float visits, const float winScore, const i
 	board{ board },
 	visits{ visits },
 	winScore{ winScore },
+	uctValue{ 3.40282e+38f },
 	firstChild{ INVALID_IDX},
 	parentIdx{ parentIdx },
 	childrenCount{ 0 }
@@ -1139,17 +1142,13 @@ void Node::addChild(const int childIdxNode) {
 	++childrenCount;
 }
 
-float Node::uct(const float parentVisits) const {
-	float uctValue{ 3.40282e+38f };
-
+void Node::uct(const float parentVisits) {
 	if (visits > 0.f) {
 		const float winVisitsRatio = winScore / visits;
 		const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
 
 		uctValue = winVisitsRatio + confidentRatio;
 	}
-
-	return uctValue;
 }
 
 class Tree {
@@ -1249,6 +1248,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	}
 
 	cerr << "MCTS iterations: " << iteration << endl;
+	cerr << "Nodes count: " << searchTree.getNodesCount() << endl << endl;
 
 	searchEnd(turnIdx, allMoves, allMovesCount);
 }
@@ -1268,7 +1268,7 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 		float maxUCT = -1.0;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeFirstChild + childIdx;
-			const float childUCT = searchTree.getNode(childNodeIdx).uct(parentVisits);
+			const float childUCT = searchTree.getNode(childNodeIdx).getUCTValue();
 
 			if (childUCT > maxUCT) {
 				maxUCT = childUCT;
@@ -1305,7 +1305,7 @@ int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
 
 void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int victoriousPlayer) {
 	int currentNodeIdx = nodeToExploreIdx;
-	while (INVALID_IDX != currentNodeIdx) {
+	while (turnRootNodeIdx != currentNodeIdx) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
 		currentNode.setVisits(currentNode.getVisits() + 1.f);
 
@@ -1314,6 +1314,10 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 		if (ownerPlayer == victoriousPlayer) {
 			currentNode.setWinScore(currentNode.getWinScore() + WIN_VALUE);
 		}
+
+		//if (currentNodeIdx != turnRootNodeIdx) {
+			currentNode.uct(searchTree.getNode(currentNode.getParentIdx()).getVisits());
+		//}
 
 		currentNodeIdx = currentNode.getParentIdx();
 	}
@@ -1511,6 +1515,8 @@ int main() {
 	streambuf *coutbuf = cout.rdbuf();
 	cout.rdbuf(out.rdbuf());
 #endif // REDIRECT_INPUT
+
+	cerr << sizeof(Node) << endl;
 
 	Game game;
 	game.play();
