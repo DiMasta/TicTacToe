@@ -1,21 +1,21 @@
-#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
-#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
-#pragma GCC target("avx")  //Enable AVX
-#include <x86intrin.h> //AVX/SSE Extensions
-#include <bits/stdc++.h> //All main STD libraries
+//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+//#pragma GCC target("avx")  //Enable AVX
+//#include <x86intrin.h> //AVX/SSE Extensions
+//#include <bits/stdc++.h> //All main STD libraries
 
-//#define REDIRECT_INPUT
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define DEBUG_ONE_TURN
 
-//#include <iostream>
-//#include <fstream>
-//#include <string>
-//#include <vector>
-//#include <map>
-//#include <chrono>
-//#include <cmath>
-//#include <cstring>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <map>
+#include <chrono>
+#include <cmath>
+#include <cstring>
 
 using namespace std;
 
@@ -1097,9 +1097,9 @@ ostream& operator<<(std::ostream& stream, const Board& board) {
 	return stream;
 }
 
-class State {
+class Node {
 public:
-	State(const Board& board, const float visits, const float winScore);
+	Node(const Board& board, const float visits, const float winScore, const int parentIdx);
 	void setBoard(const Board& board) { this->board = board; }
 	void setVisits(const float visits) { this->visits = visits; }
 	void setWinScore(const float winScore) { this->winScore = winScore; }
@@ -1107,6 +1107,10 @@ public:
 	Board& getBoard() { return board; }
 	float getVisits() const { return visits; }
 	float getWinScore() const { return winScore; }
+	int getFirstChild() const { return firstChild; }
+	int getParentIdx() const { return parentIdx; }
+	int getChildrenCount() const { return childrenCount; }
+	void addChild(const int childIdxNode);
 
 	float uct(const float parentVisits) const;
 
@@ -1114,47 +1118,15 @@ private:
 	Board board;
 	float visits;
 	float winScore;
-};
-
-State::State(const Board& board, const float visits, const float winScore) :
-	board{ board },
-	visits{ visits },
-	winScore{ winScore }
-{}
-
-float State::uct(const float parentVisits) const {
-	float uctValue{ 3.40282e+38f };
-
-	if (visits > 0.f) {
-		const float winVisitsRatio = winScore / visits;
-		const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
-
-		uctValue = winVisitsRatio + confidentRatio;
-	}
-
-	return uctValue;
-}
-
-class Node {
-public:
-	Node(const State& state, const int parentIdx);
-	const State& getState() const { return state; }
-	State& getState() { return state; }
-	int getFirstChild() const { return firstChild; }
-	int getParentIdx() const { return parentIdx; }
-	void addChild(const int childIdxNode);
-	int getChildrenCount() const;
-
-private:
-	State state;
 	int firstChild;
 	int parentIdx;
 	char childrenCount;
-	char depth;
 };
 
-Node::Node(const State& state, const int parentIdx) :
-	state{ state },
+Node::Node(const Board& board, const float visits, const float winScore, const int parentIdx) :
+	board{ board },
+	visits{ visits },
+	winScore{ winScore },
 	firstChild{ INVALID_IDX},
 	parentIdx{ parentIdx },
 	childrenCount{ 0 }
@@ -1167,8 +1139,17 @@ void Node::addChild(const int childIdxNode) {
 	++childrenCount;
 }
 
-int Node::getChildrenCount() const {
-	return childrenCount;
+float Node::uct(const float parentVisits) const {
+	float uctValue{ 3.40282e+38f };
+
+	if (visits > 0.f) {
+		const float winVisitsRatio = winScore / visits;
+		const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
+
+		uctValue = winVisitsRatio + confidentRatio;
+	}
+
+	return uctValue;
 }
 
 class Tree {
@@ -1187,14 +1168,13 @@ private:
 
 void Tree::init(const Board& initialBoard) {
 	nodes.reserve(NODES_TO_RESERVE);
-	State rootState{ initialBoard, 0.f, 0.f };
-	Node rootNode{ rootState, INVALID_IDX };
+	Node rootNode{ initialBoard, 0.f, 0.f, INVALID_IDX };
 	nodes.emplace_back(rootNode);
 	nodesCount = 1;
 }
 
 void Tree::setRootPlayer(const int playerIdx) {
-	nodes[0].getState().getBoard().setPlayer(playerIdx);
+	nodes[0].getBoard().setPlayer(playerIdx);
 }
 
 int Tree::addNode(const Node& node) {
@@ -1254,11 +1234,10 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
 	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
-	//while (iteration < iterationsLimit) {
 		int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
-		if (BoardStatus::IN_PROGRESS == selectedNode.getState().getBoard().getStatus()) {
+		if (BoardStatus::IN_PROGRESS == selectedNode.getBoard().getStatus()) {
 			expansion(selectedNodeIdx, allMoves, allMovesCount);
 			selectedNodeIdx = selectedNode.getFirstChild() + (fast_rand() % selectedNode.getChildrenCount());
 		}
@@ -1283,14 +1262,13 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
 		const Node& currentNode = searchTree.getNode(currentNodeIdx);
-		const float parentVisits = currentNode.getState().getVisits();
+		const float parentVisits = currentNode.getVisits();
 		const int nodeFirstChild = currentNode.getFirstChild();
 
 		float maxUCT = -1.0;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeFirstChild + childIdx;
-			const State& childState = searchTree.getNode(childNodeIdx).getState();
-			float childUCT = childState.uct(parentVisits);
+			const float childUCT = searchTree.getNode(childNodeIdx).uct(parentVisits);
 
 			if (childUCT > maxUCT) {
 				maxUCT = childUCT;
@@ -1304,8 +1282,7 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 
 void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) {
 	Node& parentNode = searchTree.getNode(selectedNode);
-	const State& parentState = parentNode.getState();
-	const Board& parentBoard = parentState.getBoard();
+	const Board& parentBoard = parentNode.getBoard();
 	parentBoard.getAllPossibleMoves(allMoves, allMovesCount);
 	
 	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
@@ -1316,15 +1293,13 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 		childBoard.constructBigBoard(bigBoard, bigBoardDraw);
 		childBoard.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
 	
-		State childState{ childBoard, 0.f, 0.f };
-		Node childNode{ childState, selectedNode };
-	
+		const Node childNode{ childBoard, 0.f, 0.f, selectedNode };	
 		parentNode.addChild(searchTree.addNode(childNode));
 	}
 }
 
 int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
-	Board boardToSimulate = searchTree.getNode(nodeToExploreIdx).getState().getBoard();
+	Board boardToSimulate = searchTree.getNode(nodeToExploreIdx).getBoard();
 	return boardToSimulate.simulateRandomGame();
 }
 
@@ -1332,13 +1307,12 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 	int currentNodeIdx = nodeToExploreIdx;
 	while (INVALID_IDX != currentNodeIdx) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
-		State& currentNodeState = currentNode.getState();
-		currentNodeState.setVisits(currentNodeState.getVisits() + 1.f);
+		currentNode.setVisits(currentNode.getVisits() + 1.f);
 
-		int ownerPlayer = currentNodeState.getBoard().getPlayer();
-		ownerPlayer = currentNodeState.getBoard().togglePlayer(ownerPlayer);
+		int ownerPlayer = currentNode.getBoard().getPlayer();
+		ownerPlayer = currentNode.getBoard().togglePlayer(ownerPlayer);
 		if (ownerPlayer == victoriousPlayer) {
-			currentNodeState.setWinScore(currentNodeState.getWinScore() + WIN_VALUE);
+			currentNode.setWinScore(currentNode.getWinScore() + WIN_VALUE);
 		}
 
 		currentNodeIdx = currentNode.getParentIdx();
@@ -1347,7 +1321,7 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 
 void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 	if (0 == turnIdx) {
-		searchTree.getNode(turnRootNodeIdx).getState().setBoard(initialBoard);
+		searchTree.getNode(turnRootNodeIdx).setBoard(initialBoard);
 	}
 	else {
 		const Node& currentRoot = searchTree.getNode(turnRootNodeIdx);
@@ -1355,7 +1329,7 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 		for (int childIdx = 0; childIdx < currentRoot.getChildrenCount(); ++childIdx) {
 			const Node& child = searchTree.getNode(currentRootFirstChild + childIdx);
 
-			if (opponentMove == child.getState().getBoard().getMove()) {
+			if (opponentMove == child.getBoard().getMove()) {
 				turnRootNodeIdx = currentRootFirstChild + childIdx;
 			}
 		}
@@ -1375,14 +1349,14 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 			float maxScore = 0.0;
 			for (int childIdx = 0; childIdx < rootChildrenCount; ++childIdx) {
 				const int childNodeIdx = rootFirstChild + childIdx;
-				const float childScore = searchTree.getNode(childNodeIdx).getState().getWinScore();
+				const float childScore = searchTree.getNode(childNodeIdx).getWinScore();
 				if (childScore > maxScore) {
 					maxScore = childScore;
 					bestChildIdx = childNodeIdx;
 				}
 			}
 
-			bestMove = searchTree.getNode(bestChildIdx).getState().getBoard().getMove();
+			bestMove = searchTree.getNode(bestChildIdx).getBoard().getMove();
 			turnRootNodeIdx = bestChildIdx;
 
 			if (0 == searchTree.getNode(turnRootNodeIdx).getChildrenCount()) {
