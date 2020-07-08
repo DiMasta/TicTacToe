@@ -244,3 +244,5 @@ ModelManifest.xml
 # Files
 TicTacToe/output.txt
 
+# Directories
+TicTacToe/VTune Profiler Results/

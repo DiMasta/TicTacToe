@@ -4,6 +4,10 @@
 #include <x86intrin.h> //AVX/SSE Extensions
 #include <bits/stdc++.h> //All main STD libraries
 
+//#define REDIRECT_INPUT
+//#define OUTPUT_GAME_DATA
+//#define DEBUG_ONE_TURN
+
 //#include <iostream>
 //#include <fstream>
 //#include <string>
@@ -14,10 +18,6 @@
 //#include <cstring>
 
 using namespace std;
-
-//#define REDIRECT_INPUT
-//#define OUTPUT_GAME_DATA
-//#define DEBUG_ONE_TURN
 
 static const string INPUT_FILE_NAME = "input.txt";
 static const string OUTPUT_FILE_NAME = "output.txt";
@@ -53,6 +53,8 @@ static constexpr int FIRST_TURN_ITERATIONS = 150'000;
 static constexpr int TURN_ITERATIONS = 22'000;
 static constexpr short EMPTY_TICTACTOE_BOARD = 0;
 static constexpr short FULL_BOARD_MASK = 0b0000'000'111'111'111;
+static float SQRT_2;
+static float MAX_FLOAT;
 
 int ALL_MOVES[ALL_POSSOBLE_FILLED_BOARDS][BOARD_DIM] = {
 	{0,1,2,3,4,5,6,7,8},
@@ -1097,25 +1099,41 @@ ostream& operator<<(std::ostream& stream, const Board& board) {
 
 class State {
 public:
-	State(const Board& board, const int visits, const float winScore);
+	State(const Board& board, const float visits, const float winScore);
 	void setBoard(const Board& board) { this->board = board; }
-	void setVisits(const int visits) { this->visits = visits; }
+	void setVisits(const float visits) { this->visits = visits; }
 	void setWinScore(const float winScore) { this->winScore = winScore; }
 	const Board& getBoard() const { return board; }
 	Board& getBoard() { return board; }
-	int getVisits() const { return visits; }
+	float getVisits() const { return visits; }
 	float getWinScore() const { return winScore; }
+
+	float uct(const float parentVisits) const;
+
 private:
 	Board board;
-	int visits;
+	float visits;
 	float winScore;
 };
 
-State::State(const Board& board, const int visits, const float winScore) :
+State::State(const Board& board, const float visits, const float winScore) :
 	board{ board },
 	visits{ visits },
 	winScore{ winScore }
 {}
+
+float State::uct(const float parentVisits) const {
+	float uctValue{ 3.40282e+38f };
+
+	if (visits > 0.f) {
+		const float winVisitsRatio = winScore / visits;
+		const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
+
+		uctValue = winVisitsRatio + confidentRatio;
+	}
+
+	return uctValue;
+}
 
 class Node {
 public:
@@ -1169,7 +1187,7 @@ private:
 
 void Tree::init(const Board& initialBoard) {
 	nodes.reserve(NODES_TO_RESERVE);
-	State rootState{ initialBoard, 0, 0 };
+	State rootState{ initialBoard, 0.f, 0.f };
 	Node rootNode{ rootState, INVALID_IDX };
 	nodes.emplace_back(rootNode);
 	nodesCount = 1;
@@ -1202,7 +1220,6 @@ private:
 	void expansion(const int selectedNode, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 	int simulation(const int nodeToExploreIdx);
 	void backPropagation(const int nodeToExploreIdx, const int simulationResult);
-	float uct(const float nodeWinScore, const int parentVisits, const int nodeVisit);
 	void searchBegin(const int turnIdx);
 	void searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 
@@ -1213,8 +1230,6 @@ private:
 	Board& initialBoard;
 	long long timeLimit;
 	int iterationsLimit;
-	float sqrtOf2;
-	float maxDouble;
 	int turnRootNodeIdx;
 };
 
@@ -1224,8 +1239,6 @@ MonteCarloTreeSearch::MonteCarloTreeSearch(Board& initialBoard) :
 	iterationsLimit{ 0 },
 	turnRootNodeIdx{ 0 }
 {
-	sqrtOf2 = sqrtf(2.f);
-	maxDouble = numeric_limits<float>::max();
 	searchTree.init(initialBoard);
 }
 
@@ -1257,7 +1270,6 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	}
 
 	cerr << "MCTS iterations: " << iteration << endl;
-	cerr << "Nodes count: " << searchTree.getNodesCount() << endl;
 
 	searchEnd(turnIdx, allMoves, allMovesCount);
 }
@@ -1271,14 +1283,14 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
 		const Node& currentNode = searchTree.getNode(currentNodeIdx);
-		const int parentVisits = currentNode.getState().getVisits();
+		const float parentVisits = currentNode.getState().getVisits();
 		const int nodeFirstChild = currentNode.getFirstChild();
 
 		float maxUCT = -1.0;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeFirstChild + childIdx;
 			const State& childState = searchTree.getNode(childNodeIdx).getState();
-			float childUCT = uct(childState.getWinScore(), parentVisits, childState.getVisits());
+			float childUCT = childState.uct(parentVisits);
 
 			if (childUCT > maxUCT) {
 				maxUCT = childUCT;
@@ -1304,7 +1316,7 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 		childBoard.constructBigBoard(bigBoard, bigBoardDraw);
 		childBoard.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
 	
-		State childState{ childBoard, 0, 0.0 };
+		State childState{ childBoard, 0.f, 0.f };
 		Node childNode{ childState, selectedNode };
 	
 		parentNode.addChild(searchTree.addNode(childNode));
@@ -1321,7 +1333,7 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 	while (INVALID_IDX != currentNodeIdx) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
 		State& currentNodeState = currentNode.getState();
-		currentNodeState.setVisits(currentNodeState.getVisits() + 1);
+		currentNodeState.setVisits(currentNodeState.getVisits() + 1.f);
 
 		int ownerPlayer = currentNodeState.getBoard().getPlayer();
 		ownerPlayer = currentNodeState.getBoard().togglePlayer(ownerPlayer);
@@ -1331,21 +1343,6 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 
 		currentNodeIdx = currentNode.getParentIdx();
 	}
-}
-
-float MonteCarloTreeSearch::uct(const float nodeWinScore, const int parentVisits, const int nodeVisit) {
-	float uctValue{ maxDouble };
-
-	if (nodeVisit > 0) {
-		const float nodeVisitDouble = static_cast<float>(nodeVisit);
-		const float totalVisitsDouble = static_cast<float>(parentVisits);
-		const float winVisitsRatio = nodeWinScore / nodeVisitDouble;
-		const float confidentRatio = sqrtOf2 * (1 / invSqrt(logf(totalVisitsDouble) / nodeVisitDouble));
-
-		uctValue = winVisitsRatio + confidentRatio;
-	}
-
-	return uctValue;
 }
 
 void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
@@ -1423,6 +1420,8 @@ Game::Game() :
 
 void Game::initGame() {
 	fast_srand(444);
+	SQRT_2 = sqrtf(2.f);
+	MAX_FLOAT = numeric_limits<float>::max();
 }
 
 void Game::gameLoop() {
