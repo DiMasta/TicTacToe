@@ -1146,8 +1146,8 @@ void Node::addChild(const int childIdxNode) {
 void Node::uct(const float parentVisits) {
 	if (visits > 0.f) {
 		const float winVisitsRatio = winScore / visits;
-		const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
-		//const float confidentRatio = 1.41421f * (sqrtf(logf(parentVisits) / visits));
+		//const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
+		const float confidentRatio = 1.41421f * (sqrtf(logf(parentVisits) / visits));
 
 		uctValue = winVisitsRatio + confidentRatio;
 	}
@@ -1287,7 +1287,6 @@ void MonteCarloTreeSearch::setRootPlayer(const int playerIdx) {
 
 void MonteCarloTreeSearch::debug() const {
 	cout << "SEARCH_END" << endl;
-	cout << "turnRootNodeIdx = " << turnRootNodeIdx << endl;
 	searchTree.debug();
 }
 
@@ -1370,6 +1369,8 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 			}
 		}
 	}
+
+	cout << "turnRootNodeIdx = " << turnRootNodeIdx << endl;
 }
 
 void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) {

@@ -1,6 +1,6 @@
 TURN: 0
-SEARCH_END
 turnRootNodeIdx = 0
+SEARCH_END
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -408,8 +408,8 @@ Node[44] = {
 
 4 4
 TURN: 1
+turnRootNodeIdx = 8
 SEARCH_END
-turnRootNodeIdx = 47
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -1222,8 +1222,8 @@ Node[89] = {
 
 6 8
 TURN: 2
+turnRootNodeIdx = 47
 SEARCH_END
-turnRootNodeIdx = 72
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -2414,8 +2414,8 @@ Node[131] = {
 
 0 6
 TURN: 3
+turnRootNodeIdx = 72
 SEARCH_END
-turnRootNodeIdx = 93
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -3984,8 +3984,8 @@ Node[173] = {
 
 1 0
 TURN: 4
+turnRootNodeIdx = 93
 SEARCH_END
-turnRootNodeIdx = 150
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -5914,8 +5914,8 @@ Node[213] = {
 
 3 1
 TURN: 5
+turnRootNodeIdx = 150
 SEARCH_END
-turnRootNodeIdx = 183
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -8204,8 +8204,8 @@ Node[253] = {
 
 0 4
 TURN: 6
+turnRootNodeIdx = 183
 SEARCH_END
-turnRootNodeIdx = 217
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -10863,8 +10863,8 @@ Node[294] = {
 
 1 4
 TURN: 7
+turnRootNodeIdx = 217
 SEARCH_END
-turnRootNodeIdx = 270
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -13882,8 +13882,8 @@ Node[334] = {
 
 3 3
 TURN: 8
+turnRootNodeIdx = 270
 SEARCH_END
-turnRootNodeIdx = 297
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -17252,8 +17252,8 @@ Node[373] = {
 
 0 2
 TURN: 9
+turnRootNodeIdx = 297
 SEARCH_END
-turnRootNodeIdx = 342
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -20982,8 +20982,8 @@ Node[413] = {
 
 0 7
 TURN: 10
+turnRootNodeIdx = 342
 SEARCH_END
-turnRootNodeIdx = 375
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -25072,8 +25072,8 @@ Node[453] = {
 
 0 5
 TURN: 11
+turnRootNodeIdx = 375
 SEARCH_END
-turnRootNodeIdx = 421
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -29504,8 +29504,8 @@ Node[491] = {
 
 0 8
 TURN: 12
+turnRootNodeIdx = 454
 SEARCH_END
-turnRootNodeIdx = 492
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -34233,8 +34233,8 @@ Node[524] = {
 
 3 0
 TURN: 13
+turnRootNodeIdx = 492
 SEARCH_END
-turnRootNodeIdx = 500
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -39313,8 +39313,8 @@ Node[563] = {
 
 0 0
 TURN: 14
+turnRootNodeIdx = 500
 SEARCH_END
-turnRootNodeIdx = 530
 Node[0] = {
 	move = (4, 4)
 	visits = 5
@@ -44735,8 +44735,8 @@ Node[601] = {
 
 2 2
 TURN: 15
+turnRootNodeIdx = 530
 SEARCH_END
-turnRootNodeIdx = 594
 Node[0] = {
 	move = (4, 4)
 	visits = 5
