@@ -1114,6 +1114,7 @@ public:
 
 	void addChild(const int childIdxNode);
 	void uct(const float parentVisits);
+	void incrementVisits();
 
 private:
 	Board board;
@@ -1152,6 +1153,10 @@ void Node::uct(const float parentVisits) {
 	}
 }
 
+void Node::incrementVisits() {
+	visits += 1.f;
+}
+
 class Tree {
 public:
 	int getNodesCount() const { return nodesCount; }
@@ -1160,6 +1165,8 @@ public:
 	Node& getNode(const int nodeIdx) { return nodes[nodeIdx]; }
 	void setRootPlayer(const int playerIdx);
 	int addNode(const Node& node);
+
+	void debug() const;
 
 private:
 	vector<Node> nodes;
@@ -1184,6 +1191,22 @@ int Tree::addNode(const Node& node) {
 	return nodesCount - 1;
 }
 
+void Tree::debug() const {
+	for (int nodeIdx = 0; nodeIdx < nodesCount; ++nodeIdx) {
+		cout << "Node[" << nodeIdx << "] = {" << endl;
+		cout << "\tmove = (" << static_cast<int>(nodes[nodeIdx].getBoard().getMove().getRowCoord());
+		cout << ", ";
+		cout << static_cast<int>(nodes[nodeIdx].getBoard().getMove().getColCoord()) << ")" << endl;
+		cout << "\tvisits = " << nodes[nodeIdx].getVisits() << endl;
+		cout << "\twinScore = " << nodes[nodeIdx].getWinScore() << endl;
+		cout << "\tfirstChild = " << nodes[nodeIdx].getFirstChild() << endl;
+		cout << "\tparentIdx = " << nodes[nodeIdx].getParentIdx() << endl;
+		cout << "\tchildrenCoun = " << nodes[nodeIdx].getChildrenCount() << endl;
+		cout << "};" << endl;
+		cout << endl;
+	}
+}
+
 class MonteCarloTreeSearch {
 public:
 	MonteCarloTreeSearch(Board& initialBoard);
@@ -1194,6 +1217,8 @@ public:
 	int getNodesCount() const { return searchTree.getNodesCount(); }
 	void solve(const int turnIdx);
 	void setRootPlayer(const int playerIdx);
+
+	void debug() const;
 
 private:
 	int selectPromisingNode();
@@ -1233,13 +1258,15 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
-	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
+	//for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
+	while (iteration < 5) {
 		int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
 		if (BoardStatus::IN_PROGRESS == selectedNode.getBoard().getStatus()) {
 			expansion(selectedNodeIdx, allMoves, allMovesCount);
 			selectedNodeIdx = selectedNode.getFirstChild() + (fast_rand() % selectedNode.getChildrenCount());
+			searchTree.getNode(selectedNodeIdx).incrementVisits();
 		}
 
 		int victoriousPlayer = simulation(selectedNodeIdx);
@@ -1258,11 +1285,18 @@ void MonteCarloTreeSearch::setRootPlayer(const int playerIdx) {
 	searchTree.setRootPlayer(playerIdx);
 }
 
+void MonteCarloTreeSearch::debug() const {
+	cout << "SEARCH_END" << endl;
+	cout << "turnRootNodeIdx = " << turnRootNodeIdx << endl;
+	searchTree.debug();
+}
+
 int MonteCarloTreeSearch::selectPromisingNode() {
 	int currentNodeIdx = turnRootNodeIdx;
 
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
-		const Node& currentNode = searchTree.getNode(currentNodeIdx);
+		Node& currentNode = searchTree.getNode(currentNodeIdx);
+		currentNode.incrementVisits();
 		const float parentVisits = currentNode.getVisits();
 		const int nodeFirstChild = currentNode.getFirstChild();
 
@@ -1278,6 +1312,7 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 		}
 	}
 
+	searchTree.getNode(currentNodeIdx).incrementVisits();
 	return currentNodeIdx;
 }
 
@@ -1308,7 +1343,6 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 	int currentNodeIdx = nodeToExploreIdx;
 	while (turnRootNodeIdx != currentNodeIdx) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
-		currentNode.setVisits(currentNode.getVisits() + 1.f);
 
 		int ownerPlayer = currentNode.getBoard().getPlayer();
 		ownerPlayer = currentNode.getBoard().togglePlayer(ownerPlayer);
@@ -1316,10 +1350,7 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 			currentNode.setWinScore(currentNode.getWinScore() + WIN_VALUE);
 		}
 
-		//if (currentNodeIdx != turnRootNodeIdx) {
-			currentNode.uct(searchTree.getNode(currentNode.getParentIdx()).getVisits());
-		//}
-
+		currentNode.uct(searchTree.getNode(currentNode.getParentIdx()).getVisits());
 		currentNodeIdx = currentNode.getParentIdx();
 	}
 }
@@ -1369,6 +1400,8 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 			}
 		}
 	}
+
+	debug();
 }
 
 class Game {
@@ -1454,6 +1487,8 @@ void Game::getTurnInput() {
 }
 
 void Game::turnBegin() {
+	cout << "TURN: " << turnsCount << endl;
+
 	fast_srand(fast_rand());
 
 	short bigBoard[SQUARE_TYPES] = { 0, 0 };
@@ -1516,8 +1551,6 @@ int main() {
 	streambuf *coutbuf = cout.rdbuf();
 	cout.rdbuf(out.rdbuf());
 #endif // REDIRECT_INPUT
-
-	cerr << sizeof(Node) << endl;
 
 	Game game;
 	game.play();
