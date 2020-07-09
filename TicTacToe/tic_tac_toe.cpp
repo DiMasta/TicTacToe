@@ -1161,6 +1161,8 @@ public:
 	void setRootPlayer(const int playerIdx);
 	int addNode(const Node& node);
 
+	void debug() const;
+
 private:
 	vector<Node> nodes;
 	int nodesCount;
@@ -1184,6 +1186,22 @@ int Tree::addNode(const Node& node) {
 	return nodesCount - 1;
 }
 
+void Tree::debug() const {
+	for (int nodeIdx = 0; nodeIdx < nodesCount; ++nodeIdx) {
+		cout << "Node[" << nodeIdx << "] = {" << endl;
+		cout << "\tmove = (" << static_cast<int>(nodes[nodeIdx].getBoard().getMove().getRowCoord());
+		cout << ", ";
+		cout << static_cast<int>(nodes[nodeIdx].getBoard().getMove().getColCoord()) << ")" << endl;
+		cout << "\tvisits = " << nodes[nodeIdx].getVisits() << endl;
+		cout << "\twinScore = " << nodes[nodeIdx].getWinScore() << endl;
+		cout << "\tfirstChild = " << nodes[nodeIdx].getFirstChild() << endl;
+		cout << "\tparentIdx = " << nodes[nodeIdx].getParentIdx() << endl;
+		cout << "\tchildrenCoun = " << nodes[nodeIdx].getChildrenCount() << endl;
+		cout << "};" << endl;
+		cout << endl;
+	}
+}
+
 class MonteCarloTreeSearch {
 public:
 	MonteCarloTreeSearch(Board& initialBoard);
@@ -1194,6 +1212,8 @@ public:
 	int getNodesCount() const { return searchTree.getNodesCount(); }
 	void solve(const int turnIdx);
 	void setRootPlayer(const int playerIdx);
+
+	void debug() const;
 
 private:
 	int selectPromisingNode();
@@ -1233,7 +1253,8 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
-	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
+	//for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
+	while(iteration < 5) {
 		int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
@@ -1364,6 +1385,14 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 			}
 		}
 	}
+
+	debug();
+}
+
+void MonteCarloTreeSearch::debug() const {
+	cout << "SEARCH_END" << endl;
+	cout << "turnRootNodeIdx = " << turnRootNodeIdx << endl;
+	searchTree.debug();
 }
 
 class Game {
@@ -1449,6 +1478,8 @@ void Game::getTurnInput() {
 }
 
 void Game::turnBegin() {
+	cout << "TURN: " << turnsCount << endl;
+
 	fast_srand(fast_rand());
 
 	short bigBoard[SQUARE_TYPES] = { 0, 0 };
