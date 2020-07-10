@@ -32,13 +32,13 @@ static constexpr int ALL_SQUARES = BOARD_DIM * BOARD_DIM;
 static constexpr int PLAYER_TOGGLE = 2;
 static constexpr int MY_PLAYER_IDX = 0;
 static constexpr int OPPONENT_PLAYER_IDX = 1;
-static constexpr int MAX_NODES = 11'000'000;
+static constexpr int MAX_NODES = 12'000'000;
 static constexpr char MY_PLAYER_CHAR = 'X';
 static constexpr char OPPONENT_PLAYER_CHAR = 'O';
 static constexpr char EMPTY_CHAR = '_';
 static constexpr size_t NODES_TO_RESERVE = 15'000'000;
 static constexpr long long FIRST_TURN_MS = 1'000;
-static constexpr long long TURN_MS = 100;
+static constexpr long long TURN_MS = 113;
 static constexpr long long BIAS_MS = 2;
 static constexpr float WIN_VALUE = 1.f;
 static constexpr float DRAW_VALUE = 0.5f;
@@ -1384,6 +1384,7 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 
 void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 	if (0 == turnIdx || searchTree.getNodesCount() > MAX_NODES) {
+		cerr << "RESET" << endl;
 		searchTree.init(initialBoard);
 		searchTree.getNode(turnRootNodeIdx).setBoard(initialBoard);
 		turnRootNodeIdx = 0;
@@ -1538,7 +1539,7 @@ void Game::turnBegin() {
 		board.playMove(opponentMove, bigBoard, bigBoardDraw);
 	}
 
-	cerr << board << endl;
+	//cerr << board << endl;
 
 	if (0 == turnsCount) {
 		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
