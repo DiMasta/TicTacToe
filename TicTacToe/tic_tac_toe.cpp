@@ -3,7 +3,7 @@
 #pragma GCC target("avx")  //Enable AVX
 #include <x86intrin.h> //AVX/SSE Extensions
 #include <bits/stdc++.h> //All main STD libraries
-
+ 
 //#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define DEBUG_ONE_TURN
