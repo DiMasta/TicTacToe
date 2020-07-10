@@ -1,10 +1,10 @@
-//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
-//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
-//#pragma GCC target("avx")  //Enable AVX
-//#include <x86intrin.h> //AVX/SSE Extensions
-//#include <bits/stdc++.h> //All main STD libraries
+#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+#pragma GCC target("avx")  //Enable AVX
+#include <x86intrin.h> //AVX/SSE Extensions
+#include <bits/stdc++.h> //All main STD libraries
 
-#define REDIRECT_INPUT
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define DEBUG_ONE_TURN
 
@@ -39,7 +39,8 @@ static constexpr size_t NODES_TO_RESERVE = 15'000'000;
 static constexpr long long FIRST_TURN_MS = 1'000;
 static constexpr long long TURN_MS = 100;
 static constexpr long long BIAS_MS = 2;
-static constexpr float WIN_VALUE = 10.f;
+static constexpr float WIN_VALUE = 1.f;
+static constexpr float DRAW_VALUE = 0.5f;
 static constexpr unsigned short PLAYER_FLAG		= 0b0000'0000'0000'0001;
 static constexpr unsigned short STATUS_MASK		= 0b0000'0000'0000'0110;
 static constexpr unsigned short MOVE_ROW_MASK	= 0b0000'0000'0111'1000;
@@ -970,7 +971,16 @@ int Board::simulateRandomGame() {
 		//cerr << *this << endl;
 	}
 
-	return BoardStatus::I_WON == getStatus() ? MY_PLAYER_IDX : OPPONENT_PLAYER_IDX;
+	int res = INVALID_IDX;
+	const BoardStatus status = getStatus();
+	if (BoardStatus::I_WON == status) {
+		res = MY_PLAYER_IDX;
+	}
+	else if (BoardStatus::OPPONENT_WON == status) {
+		res = OPPONENT_PLAYER_IDX;
+	}
+
+	return res;
 }
 
 Coords Board::getRandomMoveForBoard(const int miniBoardIdx, const short board) const {
@@ -1025,7 +1035,16 @@ BoardStatus Board::resolveDraw(const short(&bigBoard)[SQUARE_TYPES]) const {
 	int mineMiniBoardsWon = PLAYER_SQUARES_COUNT[bigBoard[MY_PLAYER_IDX]];
 	int opponentMiniBoardsWon = PLAYER_SQUARES_COUNT[bigBoard[OPPONENT_PLAYER_IDX]];
 
-	return (opponentMiniBoardsWon >= mineMiniBoardsWon) ? BoardStatus::OPPONENT_WON : BoardStatus::I_WON;
+	BoardStatus status = BoardStatus::DRAW;
+
+	if (opponentMiniBoardsWon > mineMiniBoardsWon) {
+		status = BoardStatus::OPPONENT_WON;
+	}
+	else if (opponentMiniBoardsWon < mineMiniBoardsWon) {
+		status = BoardStatus::I_WON;
+	}
+
+	return status;
 }
 
 short Board::getBigBoardMask() const {
@@ -1258,8 +1277,8 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
-	//for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
-	while (iteration < 5) {
+	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
+	//while (iteration < 5) {
 		int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
@@ -1348,6 +1367,9 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 		if (ownerPlayer == victoriousPlayer) {
 			currentNode.setWinScore(currentNode.getWinScore() + WIN_VALUE);
 		}
+		else if (ownerPlayer == INVALID_IDX) {
+			currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE);
+		}
 
 		currentNode.uct(searchTree.getNode(currentNode.getParentIdx()).getVisits());
 		currentNodeIdx = currentNode.getParentIdx();
@@ -1370,7 +1392,7 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 		}
 	}
 
-	cout << "turnRootNodeIdx = " << turnRootNodeIdx << endl;
+	//cout << "turnRootNodeIdx = " << turnRootNodeIdx << endl;
 }
 
 void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount) {
@@ -1402,7 +1424,7 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 		}
 	}
 
-	debug();
+	//debug();
 }
 
 class Game {
@@ -1488,7 +1510,7 @@ void Game::getTurnInput() {
 }
 
 void Game::turnBegin() {
-	cout << "TURN: " << turnsCount << endl;
+	//cout << "TURN: " << turnsCount << endl;
 
 	fast_srand(fast_rand());
 
