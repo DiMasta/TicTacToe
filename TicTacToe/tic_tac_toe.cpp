@@ -1150,7 +1150,7 @@ Node::Node(const Board& board, const float visits, const float winScore, const i
 	board{ board },
 	visits{ visits },
 	winScore{ winScore },
-	uctValue{ 3.40282e+38f },
+	uctValue{ MAX_FLOAT },
 	firstChild{ INVALID_IDX},
 	parentIdx{ parentIdx },
 	childrenCount{ 0 }
@@ -1204,7 +1204,8 @@ void Tree::init(const Board& initialBoard) {
 	}
 
 	Node rootNode{ initialBoard, 0.f, 0.f, INVALID_IDX };
-	nodes.emplace_back(rootNode);
+	//nodes.emplace_back(rootNode);
+	nodes.push_back(rootNode);
 	nodesCount = 1;
 }
 
@@ -1213,7 +1214,8 @@ void Tree::setRootPlayer(const int playerIdx) {
 }
 
 int Tree::addNode(const Node& node) {
-	nodes.emplace_back(node);
+	//nodes.emplace_back(node);
+	nodes.push_back(node);
 	++nodesCount;
 
 	return nodesCount - 1;
@@ -1324,6 +1326,7 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 		const float parentVisits = currentNode.getVisits();
 		const int nodeFirstChild = currentNode.getFirstChild();
 
+		 vector<int> maxFloatUCTChildren;
 		float maxUCT = -1.0;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeFirstChild + childIdx;
@@ -1333,6 +1336,14 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 				maxUCT = childUCT;
 				currentNodeIdx = childNodeIdx;
 			}
+
+			if (MAX_FLOAT == childUCT) {
+				maxFloatUCTChildren.push_back(childNodeIdx);
+			}
+		}
+
+		if (!maxFloatUCTChildren.empty()) {
+			currentNodeIdx = maxFloatUCTChildren[fast_rand() % maxFloatUCTChildren.size()];
 		}
 	}
 
@@ -1386,8 +1397,8 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 	if (0 == turnIdx || searchTree.getNodesCount() > MAX_NODES) {
 		cerr << "RESET" << endl;
 		searchTree.init(initialBoard);
-		searchTree.getNode(turnRootNodeIdx).setBoard(initialBoard);
 		turnRootNodeIdx = 0;
+		searchTree.getNode(turnRootNodeIdx).setBoard(initialBoard);
 	}
 	else {
 		const Node& currentRoot = searchTree.getNode(turnRootNodeIdx);
