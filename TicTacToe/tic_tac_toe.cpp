@@ -57,6 +57,7 @@ static constexpr short EMPTY_TICTACTOE_BOARD = 0;
 static constexpr short FULL_BOARD_MASK = 0b0000'000'111'111'111;
 static float SQRT_2;
 static float MAX_FLOAT;
+static float MIN_FLOAT;
 
 int ALL_MOVES[ALL_POSSOBLE_FILLED_BOARDS][BOARD_DIM] = {
 	{0,1,2,3,4,5,6,7,8},
@@ -1168,6 +1169,7 @@ void Node::uct(const float parentVisits) {
 		const float winVisitsRatio = winScore / visits;
 		//const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
 		const float confidentRatio = 1.41421f * (sqrtf(logf(parentVisits) / visits));
+		//const float confidentRatio = (2.f / 1.41421f) * (sqrtf(2.f * logf(parentVisits) / visits));
 
 		uctValue = winVisitsRatio + confidentRatio;
 	}
@@ -1286,7 +1288,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
 	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
-	//while (iteration < 5) {
+	//while (iteration < 500'000) {
 		int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
@@ -1326,8 +1328,8 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 		const float parentVisits = currentNode.getVisits();
 		const int nodeFirstChild = currentNode.getFirstChild();
 
-		 vector<int> maxFloatUCTChildren;
-		float maxUCT = -1.0;
+		vector<int> maxFloatUCTChildren;
+		float maxUCT = MIN_FLOAT;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeFirstChild + childIdx;
 			const float childUCT = searchTree.getNode(childNodeIdx).getUCTValue();
@@ -1386,6 +1388,9 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 		}
 		else if (ownerPlayer == INVALID_IDX) {
 			currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE);
+		}
+		else {
+			currentNode.setWinScore(currentNode.getWinScore() - WIN_VALUE);
 		}
 
 		currentNode.uct(searchTree.getNode(currentNode.getParentIdx()).getVisits());
@@ -1477,6 +1482,7 @@ void Game::initGame() {
 	fast_srand(444);
 	SQRT_2 = sqrtf(2.f);
 	MAX_FLOAT = numeric_limits<float>::max();
+	MIN_FLOAT = -numeric_limits<float>::max();
 }
 
 void Game::gameLoop() {
