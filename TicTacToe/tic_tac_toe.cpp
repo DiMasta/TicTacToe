@@ -1,10 +1,10 @@
-//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
-//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
-//#pragma GCC target("avx")  //Enable AVX
-//#include <x86intrin.h> //AVX/SSE Extensions
-//#include <bits/stdc++.h> //All main STD libraries
+#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+#pragma GCC target("avx")  //Enable AVX
+#include <x86intrin.h> //AVX/SSE Extensions
+#include <bits/stdc++.h> //All main STD libraries
 
-#define REDIRECT_INPUT
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define DEBUG_ONE_TURN
 
@@ -1296,8 +1296,7 @@ void Tree::init(const char initialMove) {
 	}
 
 	Node rootNode{ 0.f, 0.f, INVALID_IDX, initialMove };
-	nodes.push_back(rootNode);
-	nodesCount = 1;
+	addNode(rootNode);
 }
 
 int Tree::addNode(const Node& node) {
@@ -1386,7 +1385,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
 		Board simulatedBoard{ simulationMoves, simulationMovesCount, myPlayerIsFirst };
-		const int playerForSimulation = simulatedBoard.togglePlayer(simulatedBoard.getPlayer());
+		const int playerForSimulation = simulatedBoard.getPlayer();
 
 		if (BoardStatus::IN_PROGRESS == simulatedBoard.getStatus()) {
 			expansion(selectedNodeIdx, simulatedBoard, allMoves, allMovesCount);
