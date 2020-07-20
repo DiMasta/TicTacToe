@@ -862,15 +862,17 @@ static const Coords BIG_BOARD_POSITION_FROM_IDX[ALL_SQUARES] = {
 };
 
 static const char IDX_FROM_COORDS[BOARD_DIM][BOARD_DIM] = {
-	 0,  1,  2,  3,  4,  5,  6,  7,  8,
-	 9, 10, 11, 12, 13, 14, 15, 16, 17,
-	18, 19, 20, 21, 22, 23, 24, 25, 26,
-	27, 28, 29, 30, 31, 32, 33, 34, 35,
-	36, 37, 38, 39, 40, 41, 42, 43, 44,
-	45, 46, 47, 48, 49, 50, 51, 52, 53,
-	54, 55, 56, 57, 58, 59, 60, 61, 62,
-	63, 64, 65, 66, 67, 68, 69, 70, 71,
-	72, 73, 74, 75, 76, 77, 78, 79, 80
+	 0,  1,  2,     3,  4,  5,     6,  7,  8,
+	 9, 10, 11,    12, 13, 14,    15, 16, 17,
+	18, 19, 20,    21, 22, 23,    24, 25, 26,
+
+	27, 28, 29,    30, 31, 32,    33, 34, 35,
+	36, 37, 38,    39, 40, 41,    42, 43, 44,
+	45, 46, 47,    48, 49, 50,    51, 52, 53,
+
+	54, 55, 56,    57, 58, 59,    60, 61, 62,
+	63, 64, 65,    66, 67, 68,    69, 70, 71,
+	72, 73, 74,    75, 76, 77,    78, 79, 80
 };
 
 class Board {
@@ -1335,7 +1337,7 @@ public:
 	void debug() const;
 
 private:
-	int selectPromisingNode(char(&simulationMoves)[ALL_SQUARES], int& simulationMovesCount);
+	int selectPromisingNode(int& iterationSimMovesCount);
 	void expansion(const int selectedNode, const Board& parentBoard, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 	int simulation(const int nodeToExploreIdx, Board& parentBoard);
 	void backPropagation(const int nodeToExploreIdx, const int playerForSimulation, const int simulationResult);
@@ -1344,7 +1346,9 @@ private:
 
 private:
 	Tree searchTree;
+	char simulationMoves[ALL_SQUARES];
 	long long timeLimit;
+	int simulationMovesCount;
 	int turnRootNodeIdx;
 	bool myPlayerIsFirst;
 	char opponentMove;
@@ -1352,6 +1356,7 @@ private:
 };
 
 MonteCarloTreeSearch::MonteCarloTreeSearch() :
+	simulationMovesCount{ 0 },
 	timeLimit{ 0 },
 	turnRootNodeIdx{ 0 },
 	myPlayerIsFirst{ true },
@@ -1370,9 +1375,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 
 	Coords allMoves[ALL_SQUARES]; // Reuse array
 	int allMovesCount = 0;
-
-	char simulationMoves[ALL_SQUARES];
-	int simulationMovesCount = 0;
+	int iterationSimMovesCount = simulationMovesCount;
 
 	int iteration = 0;
 
@@ -1380,11 +1383,11 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
 	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
-	//while (iteration < 500'000) {
-		int selectedNodeIdx = selectPromisingNode(simulationMoves, simulationMovesCount);
+	//while (iteration < 5) {
+		int selectedNodeIdx = selectPromisingNode(iterationSimMovesCount);
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
-		Board simulatedBoard{ simulationMoves, simulationMovesCount, myPlayerIsFirst };
+		Board simulatedBoard{ simulationMoves, iterationSimMovesCount, myPlayerIsFirst };
 		const int playerForSimulation = simulatedBoard.getPlayer();
 
 		if (BoardStatus::IN_PROGRESS == simulatedBoard.getStatus()) {
@@ -1410,8 +1413,8 @@ void MonteCarloTreeSearch::debug() const {
 	searchTree.debug();
 }
 
-int MonteCarloTreeSearch::selectPromisingNode(char(&simulationMoves)[ALL_SQUARES], int& simulationMovesCount) {
-	simulationMovesCount = 0;
+int MonteCarloTreeSearch::selectPromisingNode(int& iterationSimMovesCount) {
+	iterationSimMovesCount = simulationMovesCount;
 	int currentNodeIdx = turnRootNodeIdx;
 	bool hasChildren = true;
 
@@ -1419,8 +1422,8 @@ int MonteCarloTreeSearch::selectPromisingNode(char(&simulationMoves)[ALL_SQUARES
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
 		hasChildren = currentNode.getChildrenCount();
 		currentNode.incrementVisits();
-		simulationMoves[simulationMovesCount] = currentNode.getMove();
-		++simulationMovesCount;
+		simulationMoves[iterationSimMovesCount] = currentNode.getMove();
+		++iterationSimMovesCount;
 
 		vector<int> maxFloatUCTChildren;
 		float maxUCT = MIN_FLOAT;
@@ -1523,6 +1526,14 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 			turnRootNodeIdx = bestChildIdx;
 		}
 	}
+
+	if (INVALID_MOVE_IDX != opponentMove) {
+		simulationMoves[simulationMovesCount] = opponentMove;
+		++simulationMovesCount;
+	}
+
+	simulationMoves[simulationMovesCount] = bestMove;
+	++simulationMovesCount;
 }
 
 class Game {
@@ -1632,6 +1643,8 @@ void Game::turnBegin() {
 		board.playMove(opponentMove);
 	}
 
+	//cerr << board << endl;
+
 	if (0 == turnsCount) {
 		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
 	}
@@ -1645,10 +1658,13 @@ void Game::turnBegin() {
 void Game::makeTurn() {
 	const char bestMove = monteCarloTreeSearch.getBestMove();
 	cout << BIG_BOARD_POSITION_FROM_IDX[bestMove] << endl;
+	//cerr << BIG_BOARD_POSITION_FROM_IDX[bestMove] << endl;
 
 	if (opponentMove.isValid()) {
 		board.playMove(BIG_BOARD_POSITION_FROM_IDX[bestMove]);
 	}
+
+	//cerr << board << endl;
 }
 
 void Game::turnEnd() {
