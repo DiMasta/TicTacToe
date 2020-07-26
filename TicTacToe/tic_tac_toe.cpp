@@ -1,10 +1,10 @@
-//#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
-//#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
-//#pragma GCC target("avx")  //Enable AVX
-//#include <x86intrin.h> //AVX/SSE Extensions
-//#include <bits/stdc++.h> //All main STD libraries
+#pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
+#pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
+#pragma GCC target("avx")  //Enable AVX
+#include <x86intrin.h> //AVX/SSE Extensions
+#include <bits/stdc++.h> //All main STD libraries
 
-#define REDIRECT_INPUT
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define DEBUG_ONE_TURN
 
@@ -1266,19 +1266,17 @@ public:
 	char getMove() const { return move; }
 	float getVisits() const { return visits; }
 	float getWinScore() const { return winScore; }
-	float getUCTValue() const { return uctValue; }
 	int getFirstChild() const { return firstChild; }
 	int getParentIdx() const { return parentIdx; }
 	int getChildrenCount() const { return childrenCount; }
 
 	void addChild(const int childIdxNode);
-	void uct(const float parentVisits);
+	float uct(const float parentVisits) const;
 	void incrementVisits();
 
 private:
 	float visits;
 	float winScore;
-	float uctValue;
 	int firstChild;
 	int parentIdx;
 	char childrenCount;
@@ -1288,7 +1286,6 @@ private:
 Node::Node(const float visits, const float winScore, const int parentIdx, const char move) :
 	visits{ visits },
 	winScore{ winScore },
-	uctValue{ MAX_FLOAT },
 	firstChild{ INVALID_IDX},
 	parentIdx{ parentIdx },
 	childrenCount{ 0 },
@@ -1302,15 +1299,19 @@ void Node::addChild(const int childIdxNode) {
 	++childrenCount;
 }
 
-void Node::uct(const float parentVisits) {
+float Node::uct(const float parentVisits) const {
+	float value = MAX_FLOAT;
+
 	if (visits > 0.f) {
 		const float winVisitsRatio = winScore / visits;
 		//const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
 		const float confidentRatio = 1.41421f * (sqrtf(logf(parentVisits) / visits));
 		//const float confidentRatio = (2.f / 1.41421f) * (sqrtf(2.f * logf(parentVisits) / visits));
 
-		uctValue = winVisitsRatio + confidentRatio;
+		value = winVisitsRatio + confidentRatio;
 	}
+
+	return value;
 }
 
 void Node::incrementVisits() {
@@ -1433,8 +1434,8 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	const chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
-	//for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
-	while (iteration < 5) {
+	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
+	//while (iteration < 5) {
 		int selectedNodeIdx = selectPromisingNode(iterationSimMovesCount);
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
@@ -1480,7 +1481,7 @@ int MonteCarloTreeSearch::selectPromisingNode(int& iterationSimMovesCount) {
 		float maxUCT = MIN_FLOAT;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = currentNode.getFirstChild() + childIdx;
-			const float childUCT = searchTree.getNode(childNodeIdx).getUCTValue();
+			const float childUCT = searchTree.getNode(childNodeIdx).uct(currentNode.getVisits());
 
 			if (childUCT > maxUCT) {
 				maxUCT = childUCT;
@@ -1551,7 +1552,7 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 
 		for (int childIdx = 0; childIdx < currentRoot.getChildrenCount(); ++childIdx) {
 			const Node& child = searchTree.getNode(currentRootFirstChild + childIdx);
-			cerr << "[" << currentRootFirstChild + childIdx << ", (" << BIG_BOARD_POSITION_FROM_IDX[child.getMove()] << ")];\tUCT: " << child.getUCTValue() << ";\tVisits: " << child.getVisits() << ";\tWinSocre: " << child.getWinScore() << endl;
+			cerr << "[" << currentRootFirstChild + childIdx << ", (" << BIG_BOARD_POSITION_FROM_IDX[child.getMove()] << ")];\tUCT: " << child.uct(searchTree.getNode(child.getParentIdx()).getVisits()) << ";\tVisits: " << child.getVisits() << ";\tWinSocre: " << child.getWinScore() << endl;
 
 			if (opponentMove == child.getMove()) {
 				turnRootNodeIdx = currentRootFirstChild + childIdx;
@@ -1582,7 +1583,7 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 			float maxScore = MIN_FLOAT;
 			for (int childIdx = 0; childIdx < rootChildrenCount; ++childIdx) {
 				const int childNodeIdx = rootFirstChild + childIdx;
-				cerr << "[" << childNodeIdx << ", (" << BIG_BOARD_POSITION_FROM_IDX[searchTree.getNode(childNodeIdx).getMove()] << ")];\tUCT: " << searchTree.getNode(childNodeIdx).getUCTValue() << ";\tVisits: " << searchTree.getNode(childNodeIdx).getVisits() << ";\tWinScore: " << searchTree.getNode(childNodeIdx).getWinScore() << endl;
+				cerr << "[" << childNodeIdx << ", (" << BIG_BOARD_POSITION_FROM_IDX[searchTree.getNode(childNodeIdx).getMove()] << ")];\tUCT: " << searchTree.getNode(childNodeIdx).uct(searchTree.getNode(searchTree.getNode(childNodeIdx).getParentIdx()).getVisits())  << ";\tVisits: " << searchTree.getNode(childNodeIdx).getVisits() << ";\tWinScore: " << searchTree.getNode(childNodeIdx).getWinScore() << endl;
 
 				const float childScore = searchTree.getNode(childNodeIdx).getWinScore();
 				if (childScore > maxScore) {
