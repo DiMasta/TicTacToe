@@ -1145,12 +1145,12 @@ void Board::debug() const {
 }
 
 Coords Board::getRandomMoveForBoard(const int miniBoardIdx, const short board) const {
-	if (BOARD_DIM != BEST_WINNING_MOVES[board]) {
-		return BIG_BOARD_POSITIONS[miniBoardIdx][BEST_WINNING_MOVES[board]];
-	}
-	else {
+	//if (BOARD_DIM != BEST_WINNING_MOVES[board]) {
+	//	return BIG_BOARD_POSITIONS[miniBoardIdx][BEST_WINNING_MOVES[board]];
+	//}
+	//else {
 		return BIG_BOARD_POSITIONS[miniBoardIdx][ALL_MOVES[board][fast_rand() % ZEROS_IN_BOARD[board]]];
-	}
+	//}
 }
 
 void Board::getAllPossibleMoves(Coords (&allMoves)[ALL_SQUARES], int& allMovesCount) const {
@@ -1445,7 +1445,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		if (BoardStatus::IN_PROGRESS == simulatedBoard.getStatus()) {
 			expansion(selectedNodeIdx, simulatedBoard, allMoves, allMovesCount);
 			selectedNodeIdx = selectedNode.getFirstChild() + (fast_rand() % selectedNode.getChildrenCount());
-			searchTree.getNode(selectedNodeIdx).incrementVisits(); //!!
+			//searchTree.getNode(selectedNodeIdx).incrementVisits(); //!!
 		}
 
 		int victoriousPlayer = simulation(selectedNodeIdx, simulatedBoard);
@@ -1473,7 +1473,7 @@ int MonteCarloTreeSearch::selectPromisingNode(int& iterationSimMovesCount) {
 	while(hasChildren) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
 		hasChildren = currentNode.getChildrenCount();
-		currentNode.incrementVisits();
+		//currentNode.incrementVisits();
 		simulationMoves[iterationSimMovesCount] = currentNode.getMove();
 		++iterationSimMovesCount;
 
@@ -1523,8 +1523,9 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 	int currentNodeIdx = nodeToExploreIdx;
 	float reward = (playerForSimulation == victoriousPlayer) ? WIN_VALUE : -WIN_VALUE;
 
-	while (turnRootNodeIdx != currentNodeIdx) {
+	while (turnRootNodeIdx <= currentNodeIdx) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
+		currentNode.incrementVisits();
 
 		if (INVALID_IDX == victoriousPlayer) {
 			currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE); //!!
@@ -1534,9 +1535,7 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 			reward = -reward;
 		}
 
-		const int parentIdx = currentNode.getParentIdx();
-		currentNode.uct(searchTree.getNode(parentIdx).getVisits());
-		currentNodeIdx = parentIdx;
+		currentNodeIdx = currentNode.getParentIdx();
 	}
 }
 
