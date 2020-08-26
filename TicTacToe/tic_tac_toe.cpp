@@ -1,12 +1,14 @@
+//#define REDIRECT_INPUT
+//#define OUTPUT_GAME_DATA
+//#define DEBUG_ONE_TURN
+
+#ifndef REDIRECT_INPUT
 #pragma GCC optimize("O3","unroll-loops","omit-frame-pointer","inline") //Optimization flags
 #pragma GCC option("arch=native","tune=native","no-zero-upper") //Enable AVX
 #pragma GCC target("avx")  //Enable AVX
 #include <x86intrin.h> //AVX/SSE Extensions
 #include <bits/stdc++.h> //All main STD libraries
-
-//#define REDIRECT_INPUT
-//#define OUTPUT_GAME_DATA
-//#define DEBUG_ONE_TURN
+#endif // REDIRECT_INPUT
 
 #include <iostream>
 #include <iomanip>
@@ -1405,6 +1407,12 @@ private:
 	bool myPlayerIsFirst;
 	char opponentMove;
 	char bestMove;
+
+	//Debug
+	int gamesPlayed;
+	int myPlayerWins;
+	int opponentPlayerWins;
+	int draws;
 };
 
 MonteCarloTreeSearch::MonteCarloTreeSearch() :
@@ -1433,9 +1441,12 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 
 	const chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
-	
+
+#ifdef REDIRECT_INPUT
+	while (iteration < 500'000) {
+#else
 	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
-	//while (iteration < 5) {
+#endif // REDIRECT_INPUT
 		int selectedNodeIdx = selectPromisingNode(iterationSimMovesCount);
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
@@ -1516,7 +1527,20 @@ int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx, Board& boardToS
 	const char moveIdx = searchTree.getNode(nodeToExploreIdx).getMove();
 	boardToSimulate.playMove(BIG_BOARD_POSITION_FROM_IDX[moveIdx]);
 
-	return boardToSimulate.simulateRandomGame();
+	const int victoriousPlayer = boardToSimulate.simulateRandomGame();
+
+	++gamesPlayed;
+	if (MY_PLAYER_IDX == victoriousPlayer) {
+		++myPlayerWins;
+	}
+	else if (OPPONENT_PLAYER_IDX == victoriousPlayer) {
+		++opponentPlayerWins;
+	}
+	else {
+		++draws;
+	}
+
+	return victoriousPlayer;
 }
 
 void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int playerForSimulation, const int victoriousPlayer) {
@@ -1528,7 +1552,7 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 		currentNode.incrementVisits();
 
 		if (INVALID_IDX == victoriousPlayer) {
-			currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE); //!!
+			//currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE); //!!
 		}
 		else {
 			currentNode.setWinScore(currentNode.getWinScore() + reward);
@@ -1540,6 +1564,11 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 }
 
 void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
+	gamesPlayed = 0;
+	myPlayerWins = 0;
+	opponentPlayerWins = 0;
+	draws = 0;
+
 	if (0 != turnIdx) {
 		const Node& currentRoot = searchTree.getNode(turnRootNodeIdx);
 		const int currentRootFirstChild = currentRoot.getFirstChild();
@@ -1596,6 +1625,12 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 
 			cerr << "NEW turnRootNodeIdx: " << turnRootNodeIdx << " (" << BIG_BOARD_POSITION_FROM_IDX[searchTree.getNode(turnRootNodeIdx).getMove()] << ")" << endl;
 		}
+
+		cerr << endl;
+		cerr << "Games played: " << gamesPlayed << endl;
+		cerr << "My player wins: " << myPlayerWins << endl;
+		cerr << "Opponent player wins: " << opponentPlayerWins << endl;
+		cerr << "Draws: " << draws << endl;
 	}
 
 	if (INVALID_MOVE_IDX != opponentMove) {
