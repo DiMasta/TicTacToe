@@ -1,4 +1,4 @@
-//#define REDIRECT_INPUT
+#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define DEBUG_ONE_TURN
 
@@ -22,7 +22,8 @@
 
 using namespace std;
 
-static const string INPUT_FILE_NAME = "input.txt";
+//static const string INPUT_FILE_NAME = "input.txt";
+static const string INPUT_FILE_NAME = "input_second_test.txt";
 static const string OUTPUT_FILE_NAME = "output.txt";
 static const string EMPTY_STRING = "";
 static constexpr char SPACE = ' ';
@@ -1456,7 +1457,6 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		if (BoardStatus::IN_PROGRESS == simulatedBoard.getStatus()) {
 			expansion(selectedNodeIdx, simulatedBoard, allMoves, allMovesCount);
 			selectedNodeIdx = selectedNode.getFirstChild() + (fast_rand() % selectedNode.getChildrenCount());
-			//searchTree.getNode(selectedNodeIdx).incrementVisits(); //!!
 		}
 
 		int victoriousPlayer = simulation(selectedNodeIdx, simulatedBoard);
@@ -1484,7 +1484,6 @@ int MonteCarloTreeSearch::selectPromisingNode(int& iterationSimMovesCount) {
 	while(hasChildren) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
 		hasChildren = currentNode.getChildrenCount();
-		//currentNode.incrementVisits();
 		simulationMoves[iterationSimMovesCount] = currentNode.getMove();
 		++iterationSimMovesCount;
 
@@ -1524,8 +1523,10 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, const Board& parent
 }
 
 int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx, Board& boardToSimulate) {
-	const char moveIdx = searchTree.getNode(nodeToExploreIdx).getMove();
-	boardToSimulate.playMove(BIG_BOARD_POSITION_FROM_IDX[moveIdx]);
+	if (BoardStatus::IN_PROGRESS == boardToSimulate.getStatus()) {
+		const char moveIdx = searchTree.getNode(nodeToExploreIdx).getMove();
+		boardToSimulate.playMove(BIG_BOARD_POSITION_FROM_IDX[moveIdx]);
+	}
 
 	const int victoriousPlayer = boardToSimulate.simulateRandomGame();
 
@@ -1552,7 +1553,7 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 		currentNode.incrementVisits();
 
 		if (INVALID_IDX == victoriousPlayer) {
-			//currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE); //!!
+			currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE); //!!
 		}
 		else {
 			currentNode.setWinScore(currentNode.getWinScore() + reward);
@@ -1714,6 +1715,7 @@ void Game::getTurnInput() {
 		monteCarloTreeSearch.setOpponentMove(INVALID_MOVE_IDX);
 	}
 
+#ifndef REDIRECT_INPUT
 	int validActionCount;
 	cin >> validActionCount; cin.ignore();
 
@@ -1730,6 +1732,7 @@ void Game::getTurnInput() {
 		cerr << row << SPACE << col << endl;
 #endif // OUTPUT_GAME_DATA
 	}
+#endif // REDIRECT_INPUT
 }
 
 void Game::turnBegin() {
