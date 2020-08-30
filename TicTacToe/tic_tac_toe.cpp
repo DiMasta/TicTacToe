@@ -1019,7 +1019,10 @@ void Board::init() {
 }
 
 void Board::copy(const Board& rhs) {
+	this->bigBoard[MY_PLAYER_IDX] = rhs.bigBoard[MY_PLAYER_IDX];
+	this->bigBoard[OPPONENT_PLAYER_IDX] = rhs.bigBoard[OPPONENT_PLAYER_IDX];
 	this->flags = rhs.flags;
+	this->bigBoardDraw = rhs.bigBoardDraw;
 	memcpy(&board[0][0], &rhs.board[0][0], 36);
 }
 
@@ -1392,6 +1395,7 @@ public:
 	void debug() const;
 
 private:
+	int preporcessMoves(const Board& parentBoard, Coords(&allMoves)[ALL_SQUARES], const int allMovesCount) const;
 	int selectPromisingNode(int& iterationSimMovesCount);
 	void expansion(const int selectedNode, const Board& parentBoard, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 	int simulation(const int nodeToExploreIdx, Board& parentBoard);
@@ -1476,6 +1480,27 @@ void MonteCarloTreeSearch::debug() const {
 	searchTree.debug();
 }
 
+int MonteCarloTreeSearch::preporcessMoves(const Board& parentBoard, Coords(&allMoves)[ALL_SQUARES], const int allMovesCount) const {
+	int winningMoveIdx = INVALID_IDX;
+
+	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
+		Board boardToCheck{ parentBoard };
+		boardToCheck.playMove(allMoves[moveIdx]);
+
+		const bool myPlayerWon = (BoardStatus::I_WON == boardToCheck.getStatus()) && (MY_PLAYER_IDX == parentBoard.getPlayer());
+		const bool opponentWon = (BoardStatus::OPPONENT_WON == boardToCheck.getStatus()) && (OPPONENT_PLAYER_IDX == parentBoard.getPlayer());
+
+		if (myPlayerWon || opponentWon) {
+			cerr << "WINNING CHILD FOUND!!!" << endl;
+
+			winningMoveIdx = moveIdx;
+			break;
+		}
+	}
+
+	return winningMoveIdx;
+}
+
 int MonteCarloTreeSearch::selectPromisingNode(int& iterationSimMovesCount) {
 	iterationSimMovesCount = simulationMovesCount;
 	int currentNodeIdx = turnRootNodeIdx;
@@ -1515,10 +1540,19 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, const Board& parent
 	Node& parentNode = searchTree.getNode(selectedNode);
 	parentBoard.getAllPossibleMoves(allMoves, allMovesCount);
 	
-	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
-		const Coords move = allMoves[moveIdx];
+	const int winningMoveIdx = preporcessMoves(parentBoard, allMoves, allMovesCount);
+
+	if (INVALID_IDX != winningMoveIdx) {
+		const Coords move = allMoves[winningMoveIdx];
 		const Node childNode{ 0.f, 0.f, selectedNode, IDX_FROM_COORDS[move.getRowCoord()][move.getColCoord()] };
 		parentNode.addChild(searchTree.addNode(childNode));
+	}
+	else {
+		for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
+			const Coords move = allMoves[moveIdx];
+			const Node childNode{ 0.f, 0.f, selectedNode, IDX_FROM_COORDS[move.getRowCoord()][move.getColCoord()] };
+			parentNode.addChild(searchTree.addNode(childNode));
+		}
 	}
 }
 
