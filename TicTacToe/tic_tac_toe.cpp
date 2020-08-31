@@ -1248,6 +1248,7 @@ public:
 	void debug() const;
 
 private:
+	int preporcessMoves(const Board& parentBoard, Coords(&allMoves)[ALL_SQUARES], const int allMovesCount) const;
 	int selectPromisingNode();
 	void expansion(const int selectedNode, Coords(&allMoves)[ALL_SQUARES], int& allMovesCount);
 	int simulation(const int nodeToExploreIdx);
@@ -1315,6 +1316,29 @@ void MonteCarloTreeSearch::debug() const {
 	searchTree.debug();
 }
 
+int MonteCarloTreeSearch::preporcessMoves(const Board& parentBoard, Coords(&allMoves)[ALL_SQUARES], const int allMovesCount) const {
+	int winningMoveIdx = INVALID_IDX;
+
+		for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
+			Board boardToCheck{ parentBoard };
+
+			short bigBoard[SQUARE_TYPES] = { 0, 0 };
+			short bigBoardDraw = 0;
+			boardToCheck.constructBigBoard(bigBoard, bigBoardDraw);
+			boardToCheck.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
+
+			const bool myPlayerWon = (BoardStatus::I_WON == boardToCheck.getStatus()) && (MY_PLAYER_IDX == parentBoard.getPlayer());
+			const bool opponentWon = (BoardStatus::OPPONENT_WON == boardToCheck.getStatus()) && (OPPONENT_PLAYER_IDX == parentBoard.getPlayer());
+
+			if (myPlayerWon || opponentWon) {
+				winningMoveIdx = moveIdx;
+				break;
+		}
+	}
+
+	return winningMoveIdx;
+}
+
 int MonteCarloTreeSearch::selectPromisingNode() {
 	int currentNodeIdx = turnRootNodeIdx;
 
@@ -1345,16 +1369,31 @@ void MonteCarloTreeSearch::expansion(const int selectedNode, Coords(&allMoves)[A
 	const Board& parentBoard = parentNode.getBoard();
 	parentBoard.getAllPossibleMoves(allMoves, allMovesCount);
 	
-	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
+	const int winningMoveIdx = preporcessMoves(parentBoard, allMoves, allMovesCount);
+	
+	if (INVALID_IDX != winningMoveIdx) {
 		Board childBoard{ parentBoard };
 
 		short bigBoard[SQUARE_TYPES] = { 0, 0 };
 		short bigBoardDraw = 0;
 		childBoard.constructBigBoard(bigBoard, bigBoardDraw);
-		childBoard.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
-	
-		const Node childNode{ childBoard, 0.f, 0.f, selectedNode };	
+		childBoard.playMove(allMoves[winningMoveIdx], bigBoard, bigBoardDraw);
+
+		const Node childNode{ childBoard, 0.f, 0.f, selectedNode };
 		parentNode.addChild(searchTree.addNode(childNode));
+	}
+	else {
+		for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
+			Board childBoard{ parentBoard };
+
+			short bigBoard[SQUARE_TYPES] = { 0, 0 };
+			short bigBoardDraw = 0;
+			childBoard.constructBigBoard(bigBoard, bigBoardDraw);
+			childBoard.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
+
+			const Node childNode{ childBoard, 0.f, 0.f, selectedNode };
+			parentNode.addChild(searchTree.addNode(childNode));
+		}
 	}
 }
 
@@ -1374,7 +1413,7 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 			currentNode.setWinScore(currentNode.getWinScore() + WIN_VALUE);
 		}
 		else if (ownerPlayer == INVALID_IDX) {
-			currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE);
+			//currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE);
 		}
 
 		currentNode.uct(searchTree.getNode(currentNode.getParentIdx()).getVisits());
