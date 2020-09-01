@@ -985,6 +985,32 @@ int Board::simulateRandomGame() {
 }
 
 Coords Board::getRandomMoveForBoard(const int miniBoardIdx, const short board) const {
+	//Coords winnigMove;
+	//
+	//for (int moveIdx = 0; moveIdx < BOARD_DIM; ++moveIdx) {
+	//	const int miniBoardMove = ALL_MOVES[board][moveIdx];
+	//	if (BOARD_DIM != miniBoardMove) {
+	//		const Coords coordsToCheck = BIG_BOARD_POSITIONS[miniBoardIdx][moveIdx];
+	//		Board boardToCheck{ *this };
+	//		short bigBoard[SQUARE_TYPES] = { 0, 0 };
+	//		short bigBoardDraw = 0;
+	//		boardToCheck.constructBigBoard(bigBoard, bigBoardDraw);
+	//		boardToCheck.playMove(coordsToCheck, bigBoard, bigBoardDraw);
+	//
+	//		const bool myPlayerWon = (BoardStatus::I_WON == boardToCheck.getStatus()) && (MY_PLAYER_IDX == getPlayer());
+	//		const bool opponentWon = (BoardStatus::OPPONENT_WON == boardToCheck.getStatus()) && (OPPONENT_PLAYER_IDX == getPlayer());
+	//
+	//		if (myPlayerWon || opponentWon) {
+	//			winnigMove = coordsToCheck;
+	//			break;
+	//		}
+	//	}
+	//}
+	//
+	//if (winnigMove.isValid()) {
+	//	return winnigMove;
+	//}
+	//else
 	if (BOARD_DIM != BEST_WINNING_MOVES[board]) {
 		return BIG_BOARD_POSITIONS[miniBoardIdx][BEST_WINNING_MOVES[board]];
 	}
@@ -1319,20 +1345,20 @@ void MonteCarloTreeSearch::debug() const {
 int MonteCarloTreeSearch::preporcessMoves(const Board& parentBoard, Coords(&allMoves)[ALL_SQUARES], const int allMovesCount) const {
 	int winningMoveIdx = INVALID_IDX;
 
-		for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
-			Board boardToCheck{ parentBoard };
+	for (int moveIdx = 0; moveIdx < allMovesCount; ++moveIdx) {
+		Board boardToCheck{ parentBoard };
 
-			short bigBoard[SQUARE_TYPES] = { 0, 0 };
-			short bigBoardDraw = 0;
-			boardToCheck.constructBigBoard(bigBoard, bigBoardDraw);
-			boardToCheck.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
+		short bigBoard[SQUARE_TYPES] = { 0, 0 };
+		short bigBoardDraw = 0;
+		boardToCheck.constructBigBoard(bigBoard, bigBoardDraw);
+		boardToCheck.playMove(allMoves[moveIdx], bigBoard, bigBoardDraw);
 
-			const bool myPlayerWon = (BoardStatus::I_WON == boardToCheck.getStatus()) && (MY_PLAYER_IDX == parentBoard.getPlayer());
-			const bool opponentWon = (BoardStatus::OPPONENT_WON == boardToCheck.getStatus()) && (OPPONENT_PLAYER_IDX == parentBoard.getPlayer());
+		const bool myPlayerWon = (BoardStatus::I_WON == boardToCheck.getStatus()) && (MY_PLAYER_IDX == parentBoard.getPlayer());
+		const bool opponentWon = (BoardStatus::OPPONENT_WON == boardToCheck.getStatus()) && (OPPONENT_PLAYER_IDX == parentBoard.getPlayer());
 
-			if (myPlayerWon || opponentWon) {
-				winningMoveIdx = moveIdx;
-				break;
+		if (myPlayerWon || opponentWon) {
+			winningMoveIdx = moveIdx;
+			break;
 		}
 	}
 
@@ -1577,7 +1603,7 @@ void Game::turnBegin() {
 		board.playMove(opponentMove, bigBoard, bigBoardDraw);
 	}
 
-	cerr << board << endl;
+	//cerr << board << endl;
 
 	if (0 == turnsCount) {
 		monteCarloTreeSearch.setTimeLimit(FIRST_TURN_MS - BIAS_MS);
