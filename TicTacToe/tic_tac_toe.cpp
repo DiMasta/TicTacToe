@@ -1456,13 +1456,28 @@ void MonteCarloTreeSearch::searchBegin(const int turnIdx) {
 	else {
 		const Node& currentRoot = searchTree.getNode(turnRootNodeIdx);
 		const int currentRootFirstChild = currentRoot.getFirstChild();
+
+		cerr << "searchBegin" << endl;
+		cerr << "CURRENT turnRootNodeIdx: " << turnRootNodeIdx << SPACE << "(" << currentRoot.getBoard().getMove() << ")" << endl;
+		cerr << "children:" << endl;
+
 		for (int childIdx = 0; childIdx < currentRoot.getChildrenCount(); ++childIdx) {
 			const Node& child = searchTree.getNode(currentRootFirstChild + childIdx);
+
+			const Board& childBoard = child.getBoard();
+			cerr << "[" << currentRootFirstChild + childIdx << ", (" << childBoard.getMove() << ")];\t";
+			cerr << "UCT: " << child.getUCTValue() << ";\t";
+			cerr << "Visits: " << child.getVisits() << ";\t";
+			cerr << "WinScore: " << child.getWinScore() << endl;
 
 			if (opponentMove == child.getBoard().getMove()) {
 				turnRootNodeIdx = currentRootFirstChild + childIdx;
 			}
 		}
+
+		cerr << "NEW turnRootNodeIdx: " << turnRootNodeIdx << SPACE << "(" << searchTree.getNode(turnRootNodeIdx).getBoard().getMove() << ")" << endl;
+		cerr << endl;
+		cerr << endl;
 	}
 
 	//cout << "turnRootNodeIdx = " << turnRootNodeIdx << endl;
@@ -1473,6 +1488,10 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 		bestMove = { BOARD_DIM / 2, BOARD_DIM / 2 };
 	}
 	else {
+		cerr << "searchEnd" << endl;
+		cerr << "CURRENT turnRootNodeIdx: " << turnRootNodeIdx << SPACE << "(" << searchTree.getNode(turnRootNodeIdx).getBoard().getMove() << ")" << endl;
+		cerr << "children:" << endl;
+
 		const int rootFirstChild = searchTree.getNode(turnRootNodeIdx).getFirstChild();
 		const int rootChildrenCount = searchTree.getNode(turnRootNodeIdx).getChildrenCount();
 
@@ -1486,6 +1505,12 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 					maxScore = childScore;
 					bestChildIdx = childNodeIdx;
 				}
+
+				const Node& childNode = searchTree.getNode(childNodeIdx);
+				cerr << "[" << childNodeIdx << ", (" << childNode.getBoard().getMove() << ")];\t";
+				cerr << "UCT: " << childNode.getUCTValue() << ";\t";
+				cerr << "Visits: " << childNode.getVisits() << ";\t";
+				cerr << "WinScore: " << childNode.getWinScore() << endl;
 			}
 
 			bestMove = searchTree.getNode(bestChildIdx).getBoard().getMove();
@@ -1494,6 +1519,10 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 			if (0 == searchTree.getNode(turnRootNodeIdx).getChildrenCount()) {
 				expansion(turnRootNodeIdx, allMoves, allMovesCount);
 			}
+
+			cerr << "NEW turnRootNodeIdx: " << turnRootNodeIdx << SPACE << "(" << searchTree.getNode(turnRootNodeIdx).getBoard().getMove() << ")" << endl;
+			cerr << endl;
+			cerr << endl;
 		}
 	}
 
