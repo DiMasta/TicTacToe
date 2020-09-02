@@ -1159,7 +1159,7 @@ public:
 	int getChildrenCount() const { return childrenCount; }
 
 	void addChild(const int childIdxNode);
-	void uct(const float parentVisits);
+	float uct(const float parentVisits);
 	void incrementVisits();
 
 private:
@@ -1189,7 +1189,7 @@ void Node::addChild(const int childIdxNode) {
 	++childrenCount;
 }
 
-void Node::uct(const float parentVisits) {
+float Node::uct(const float parentVisits) {
 	if (visits > 0.f) {
 		const float winVisitsRatio = winScore / visits;
 		//const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
@@ -1197,6 +1197,8 @@ void Node::uct(const float parentVisits) {
 
 		uctValue = winVisitsRatio + confidentRatio;
 	}
+
+	return uctValue;
 }
 
 void Node::incrementVisits() {
@@ -1318,7 +1320,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 		if (BoardStatus::IN_PROGRESS == selectedNode.getBoard().getStatus()) {
 			expansion(selectedNodeIdx, allMoves, allMovesCount);
 			selectedNodeIdx = selectedNode.getFirstChild() + (fast_rand() % selectedNode.getChildrenCount());
-			searchTree.getNode(selectedNodeIdx).incrementVisits();
+			//searchTree.getNode(selectedNodeIdx).incrementVisits();
 		}
 
 		int victoriousPlayer = simulation(selectedNodeIdx);
@@ -1370,14 +1372,15 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
-		currentNode.incrementVisits();
+		//currentNode.incrementVisits();
 		const float parentVisits = currentNode.getVisits();
 		const int nodeFirstChild = currentNode.getFirstChild();
 
 		float maxUCT = -1.0;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeFirstChild + childIdx;
-			const float childUCT = searchTree.getNode(childNodeIdx).getUCTValue();
+			//const float childUCT = searchTree.getNode(childNodeIdx).getUCTValue();
+			const float childUCT = searchTree.getNode(childNodeIdx).uct(currentNode.getVisits());
 
 			if (childUCT > maxUCT) {
 				maxUCT = childUCT;
@@ -1386,7 +1389,7 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 		}
 	}
 
-	searchTree.getNode(currentNodeIdx).incrementVisits();
+	//searchTree.getNode(currentNodeIdx).incrementVisits();
 	return currentNodeIdx;
 }
 
@@ -1430,19 +1433,20 @@ int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx) {
 
 void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int victoriousPlayer) {
 	int currentNodeIdx = nodeToExploreIdx;
-	while (turnRootNodeIdx != currentNodeIdx) {
+	while (turnRootNodeIdx <= currentNodeIdx) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
+		currentNode.incrementVisits();
 
 		int ownerPlayer = currentNode.getBoard().getPlayer();
 		ownerPlayer = currentNode.getBoard().togglePlayer(ownerPlayer);
 		if (ownerPlayer == victoriousPlayer) {
 			currentNode.setWinScore(currentNode.getWinScore() + WIN_VALUE);
 		}
-		else if (ownerPlayer == INVALID_IDX) {
-			//currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE);
-		}
+		//else if (ownerPlayer == INVALID_IDX) {
+		//	currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE);
+		//}
 
-		currentNode.uct(searchTree.getNode(currentNode.getParentIdx()).getVisits());
+		//currentNode.uct(searchTree.getNode(currentNode.getParentIdx()).getVisits());
 		currentNodeIdx = currentNode.getParentIdx();
 	}
 }
