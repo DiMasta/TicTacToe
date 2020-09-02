@@ -1193,7 +1193,7 @@ float Node::uct(const float parentVisits) {
 	if (visits > 0.f) {
 		const float winVisitsRatio = winScore / visits;
 		//const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
-		const float confidentRatio = 1.41421f * (sqrtf(logf(parentVisits) / visits));
+		const float confidentRatio = 0.41421f * (sqrtf(logf(parentVisits) / visits));
 
 		uctValue = winVisitsRatio + confidentRatio;
 	}
