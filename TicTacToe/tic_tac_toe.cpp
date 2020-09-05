@@ -1062,6 +1062,8 @@ BoardStatus Board::resolveDraw(const short(&bigBoard)[SQUARE_TYPES]) const {
 	int mineMiniBoardsWon = PLAYER_SQUARES_COUNT[bigBoard[MY_PLAYER_IDX]];
 	int opponentMiniBoardsWon = PLAYER_SQUARES_COUNT[bigBoard[OPPONENT_PLAYER_IDX]];
 
+	//cerr << *this << endl << endl;
+
 	BoardStatus status = BoardStatus::DRAW;
 
 	if (opponentMiniBoardsWon > mineMiniBoardsWon) {
@@ -1313,7 +1315,7 @@ void MonteCarloTreeSearch::solve(const int turnIdx) {
 	const chrono::steady_clock::time_point loopEnd = start + chrono::milliseconds{ timeLimit };
 	
 	for (chrono::steady_clock::time_point now = start; now < loopEnd; now = std::chrono::steady_clock::now()) {
-	//while (iteration < 5) {
+	//while (iteration < 500'000) {
 		int selectedNodeIdx = selectPromisingNode();
 		const Node& selectedNode = searchTree.getNode(selectedNodeIdx);
 
@@ -1372,14 +1374,12 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 
 	while (searchTree.getNode(currentNodeIdx).getChildrenCount() > 0) {
 		Node& currentNode = searchTree.getNode(currentNodeIdx);
-		//currentNode.incrementVisits();
 		const float parentVisits = currentNode.getVisits();
 		const int nodeFirstChild = currentNode.getFirstChild();
 
 		float maxUCT = -1.0;
 		for (int childIdx = 0; childIdx < currentNode.getChildrenCount(); ++childIdx) {
 			const int childNodeIdx = nodeFirstChild + childIdx;
-			//const float childUCT = searchTree.getNode(childNodeIdx).getUCTValue();
 			const float childUCT = searchTree.getNode(childNodeIdx).uct(currentNode.getVisits());
 
 			if (childUCT > maxUCT) {
@@ -1389,7 +1389,6 @@ int MonteCarloTreeSearch::selectPromisingNode() {
 		}
 	}
 
-	//searchTree.getNode(currentNodeIdx).incrementVisits();
 	return currentNodeIdx;
 }
 
@@ -1442,9 +1441,9 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 		if (ownerPlayer == victoriousPlayer) {
 			currentNode.setWinScore(currentNode.getWinScore() + WIN_VALUE);
 		}
-		//else if (ownerPlayer == INVALID_IDX) {
-		//	currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE);
-		//}
+		else if (victoriousPlayer == INVALID_IDX) {
+			currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE);
+		}
 
 		//currentNode.uct(searchTree.getNode(currentNode.getParentIdx()).getVisits());
 		currentNodeIdx = currentNode.getParentIdx();
