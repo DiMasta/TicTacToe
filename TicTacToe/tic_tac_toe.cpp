@@ -1,4 +1,4 @@
-#define REDIRECT_INPUT
+//#define REDIRECT_INPUT
 //#define OUTPUT_GAME_DATA
 //#define DEBUG_ONE_TURN
 
@@ -1311,8 +1311,8 @@ float Node::uct(const float parentVisits) const {
 	if (visits > 0.f) {
 		const float winVisitsRatio = winScore / visits;
 		//const float confidentRatio = 1.41421f * (1.f / invSqrt(logf(parentVisits) / visits));
-		const float confidentRatio = 1.41421f * (sqrtf(logf(parentVisits) / visits));
-		//const float confidentRatio = (2.f / 1.41421f) * (sqrtf(2.f * logf(parentVisits) / visits));
+		//const float confidentRatio = 1.41421f * (sqrtf(logf(parentVisits) / visits));
+		const float confidentRatio = 0.5f * (sqrtf(logf(parentVisits) / visits));
 
 		value = winVisitsRatio + confidentRatio;
 	}
@@ -1491,7 +1491,7 @@ int MonteCarloTreeSearch::preporcessMoves(const Board& parentBoard, Coords(&allM
 		const bool opponentWon = (BoardStatus::OPPONENT_WON == boardToCheck.getStatus()) && (OPPONENT_PLAYER_IDX == parentBoard.getPlayer());
 
 		if (myPlayerWon || opponentWon) {
-			cerr << "WINNING CHILD FOUND!!!" << endl;
+			//cerr << "WINNING CHILD FOUND!!!" << endl;
 
 			winningMoveIdx = moveIdx;
 			break;
@@ -1564,16 +1564,16 @@ int MonteCarloTreeSearch::simulation(const int nodeToExploreIdx, Board& boardToS
 
 	const int victoriousPlayer = boardToSimulate.simulateRandomGame();
 
-	++gamesPlayed;
-	if (MY_PLAYER_IDX == victoriousPlayer) {
-		++myPlayerWins;
-	}
-	else if (OPPONENT_PLAYER_IDX == victoriousPlayer) {
-		++opponentPlayerWins;
-	}
-	else {
-		++draws;
-	}
+	//++gamesPlayed;
+	//if (MY_PLAYER_IDX == victoriousPlayer) {
+	//	++myPlayerWins;
+	//}
+	//else if (OPPONENT_PLAYER_IDX == victoriousPlayer) {
+	//	++opponentPlayerWins;
+	//}
+	//else {
+	//	++draws;
+	//}
 
 	return victoriousPlayer;
 }
@@ -1590,7 +1590,9 @@ void MonteCarloTreeSearch::backPropagation(const int nodeToExploreIdx, const int
 			currentNode.setWinScore(currentNode.getWinScore() + DRAW_VALUE); //!!
 		}
 		else {
-			currentNode.setWinScore(currentNode.getWinScore() + reward);
+			if (reward > 0.f) {
+				currentNode.setWinScore(currentNode.getWinScore() + reward);
+			}
 			reward = -reward;
 		}
 
@@ -1662,10 +1664,10 @@ void MonteCarloTreeSearch::searchEnd(const int turnIdx, Coords(&allMoves)[ALL_SQ
 		}
 
 		cerr << endl;
-		cerr << "Games played: " << gamesPlayed << endl;
-		cerr << "My player wins: " << myPlayerWins << endl;
-		cerr << "Opponent player wins: " << opponentPlayerWins << endl;
-		cerr << "Draws: " << draws << endl;
+		//cerr << "Games played: " << gamesPlayed << endl;
+		//cerr << "My player wins: " << myPlayerWins << endl;
+		//cerr << "Opponent player wins: " << opponentPlayerWins << endl;
+		//cerr << "Draws: " << draws << endl;
 	}
 
 	if (INVALID_MOVE_IDX != opponentMove) {
